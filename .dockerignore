@@ -1,5 +1,114 @@
-*
-!target/*-runner
-!target/*-runner.jar
-!target/lib/*
-!target/quarkus-app/*
+# ================================
+# .dockerignore pour Discord Bot
+# ================================
+# Ce fichier exclut les fichiers inutiles du contexte Docker
+# pour accélérer le build et réduire la taille de l'image
+
+# ================================
+# RÉPERTOIRES À IGNORER
+# ================================
+
+# Target Maven (sera reconstruit dans le container)
+target/
+!target/quarkus-app/
+
+# Répertoires de logs
+logs/
+*.log
+
+# Répertoires temporaires
+tmp/
+temp/
+
+# Répertoires IDE
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+
+# Répertoires de système de contrôle de version
+.git/
+.gitignore
+.gitattributes
+
+# Répertoires Node.js (si applicable)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ================================
+# FICHIERS À IGNORER
+# ================================
+
+# Fichiers de documentation
+README*.md
+CHANGELOG.md
+LICENSE
+*.txt
+*.adoc
+
+# Fichiers de configuration locale
+.env
+.env.local
+.env.*.local
+
+# Fichiers de sauvegarde et temporaires
+*~
+*.bak
+*.swp
+*.swo
+*#
+.#*
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Fichiers de test et rapports
+test-output/
+coverage/
+*.coverage
+.nyc_output/
+
+# Archives
+*.tar
+*.tar.gz
+*.zip
+*.rar
+
+# ================================
+# FICHIERS DOCKER
+# ================================
+
+# Autres Dockerfiles (garder seulement le principal)
+Dockerfile.*
+docker-compose*.yml
+
+# ================================
+# FICHIERS SPÉCIFIQUES AU PROJET
+# ================================
+
+# Scripts de développement
+start.sh
+test-api.sh
+run-tests.sh
+
+# Fichiers de configuration de développement
+src/main/docker/
+
+# ================================
+# EXCEPTIONS (FICHIERS À INCLURE)
+# ================================
+# Utilisez ! pour inclure des fichiers spécifiques
+
+# Garder les fichiers de configuration essentiels
+!src/main/resources/application.properties
+!src/main/resources/import.sql
+
+# Garder les scripts Maven wrapper
+!mvnw
+!mvnw.cmd
+!.mvn/

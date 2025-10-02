@@ -1,0 +1,44 @@
+# ================================
+# Configuration Prometheus pour Discord Bot
+# ================================
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  # Monitoring de l'application Discord Bot
+  - job_name: 'discord-bot'
+    static_configs:
+      - targets: ['discord-bot:8080']
+    metrics_path: '/q/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    
+  # Monitoring de Prometheus lui-même
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    
+  # Monitoring de PostgreSQL (si node_exporter installé)
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:9187']
+    scrape_interval: 30s
+    
+  # Monitoring système avec node_exporter (optionnel)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s
+
+# Configuration des alertes
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093

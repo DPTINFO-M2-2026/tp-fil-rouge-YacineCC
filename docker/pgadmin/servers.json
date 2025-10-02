@@ -1,0 +1,15 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "Discord Bot PostgreSQL",
+      "Group": "Discord Bot",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "postgres",
+      "Username": "discord_bot",
+      "Password": "discord_password_secure_2024",
+      "SSLMode": "prefer",
+      "Comment": "Base de données principale du Discord Bot"
+    }
+  }
+}
