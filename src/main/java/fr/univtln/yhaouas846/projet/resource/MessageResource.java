@@ -3,6 +3,7 @@ package fr.univtln.yhaouas846.projet.resource;
 import fr.univtln.yhaouas846.projet.entity.Message;
 import fr.univtln.yhaouas846.projet.entity.Channel;
 import fr.univtln.yhaouas846.projet.entity.User;
+import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -30,6 +31,7 @@ public class MessageResource {
     }
 
     @POST
+    @Transactional
     public Response createMessage(@Valid Message message) {
         try {
             message.persist();
@@ -43,6 +45,7 @@ public class MessageResource {
 
     @PUT
     @Path("/{id}")
+    @Transactional
     public Response updateMessage(@PathParam("id") Long id, @Valid Message updatedMessage) {
         Message message = Message.findById(id);
         if (message == null) {
@@ -67,6 +70,7 @@ public class MessageResource {
 
     @DELETE
     @Path("/{id}")
+    @Transactional
     public Response deleteMessage(@PathParam("id") Long id) {
         Message message = Message.findById(id);
         if (message == null) {

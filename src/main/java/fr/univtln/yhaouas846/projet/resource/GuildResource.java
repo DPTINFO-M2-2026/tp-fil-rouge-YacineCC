@@ -2,6 +2,7 @@ package fr.univtln.yhaouas846.projet.resource;
 
 import fr.univtln.yhaouas846.projet.entity.Guild;
 import fr.univtln.yhaouas846.projet.entity.User;
+import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -29,6 +30,7 @@ public class GuildResource {
     }
 
     @POST
+    @Transactional
     public Response createGuild(@Valid Guild guild) {
         try {
             guild.persist();
@@ -42,6 +44,7 @@ public class GuildResource {
 
     @PUT
     @Path("/{id}")
+    @Transactional
     public Response updateGuild(@PathParam("id") Long id, @Valid Guild updatedGuild) {
         Guild guild = Guild.findById(id);
         if (guild == null) {
@@ -65,6 +68,7 @@ public class GuildResource {
 
     @DELETE
     @Path("/{id}")
+    @Transactional
     public Response deleteGuild(@PathParam("id") Long id) {
         Guild guild = Guild.findById(id);
         if (guild == null) {
@@ -77,6 +81,7 @@ public class GuildResource {
 
     @POST
     @Path("/{guildId}/members/{userId}")
+    @Transactional
     public Response addMemberToGuild(@PathParam("guildId") Long guildId, @PathParam("userId") Long userId) {
         Guild guild = Guild.findById(guildId);
         User user = User.findById(userId);
@@ -93,6 +98,7 @@ public class GuildResource {
 
     @DELETE
     @Path("/{guildId}/members/{userId}")
+    @Transactional
     public Response removeMemberFromGuild(@PathParam("guildId") Long guildId, @PathParam("userId") Long userId) {
         Guild guild = Guild.findById(guildId);
         User user = User.findById(userId);

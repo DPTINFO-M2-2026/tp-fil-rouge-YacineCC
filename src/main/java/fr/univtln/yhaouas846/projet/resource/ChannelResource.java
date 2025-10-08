@@ -2,6 +2,7 @@ package fr.univtln.yhaouas846.projet.resource;
 
 import fr.univtln.yhaouas846.projet.entity.Channel;
 import fr.univtln.yhaouas846.projet.entity.Guild;
+import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -29,6 +30,7 @@ public class ChannelResource {
     }
 
     @POST
+    @Transactional
     public Response createChannel(@Valid Channel channel) {
         try {
             channel.persist();
@@ -42,6 +44,7 @@ public class ChannelResource {
 
     @PUT
     @Path("/{id}")
+    @Transactional
     public Response updateChannel(@PathParam("id") Long id, @Valid Channel updatedChannel) {
         Channel channel = Channel.findById(id);
         if (channel == null) {
@@ -66,6 +69,7 @@ public class ChannelResource {
 
     @DELETE
     @Path("/{id}")
+    @Transactional
     public Response deleteChannel(@PathParam("id") Long id) {
         Channel channel = Channel.findById(id);
         if (channel == null) {

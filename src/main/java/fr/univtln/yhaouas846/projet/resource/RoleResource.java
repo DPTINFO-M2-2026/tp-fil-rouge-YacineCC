@@ -3,6 +3,7 @@ package fr.univtln.yhaouas846.projet.resource;
 import fr.univtln.yhaouas846.projet.entity.Role;
 import fr.univtln.yhaouas846.projet.entity.User;
 import fr.univtln.yhaouas846.projet.entity.Guild;
+import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -30,6 +31,7 @@ public class RoleResource {
     }
 
     @POST
+    @Transactional
     public Response createRole(@Valid Role role) {
         try {
             role.persist();
@@ -43,6 +45,7 @@ public class RoleResource {
 
     @PUT
     @Path("/{id}")
+    @Transactional
     public Response updateRole(@PathParam("id") Long id, @Valid Role updatedRole) {
         Role role = Role.findById(id);
         if (role == null) {
@@ -72,6 +75,7 @@ public class RoleResource {
 
     @DELETE
     @Path("/{id}")
+    @Transactional
     public Response deleteRole(@PathParam("id") Long id) {
         Role role = Role.findById(id);
         if (role == null) {
@@ -96,6 +100,7 @@ public class RoleResource {
 
     @POST
     @Path("/{roleId}/users/{userId}")
+    @Transactional
     public Response assignRoleToUser(@PathParam("roleId") Long roleId, @PathParam("userId") Long userId) {
         Role role = Role.findById(roleId);
         User user = User.findById(userId);
@@ -112,6 +117,7 @@ public class RoleResource {
 
     @DELETE
     @Path("/{roleId}/users/{userId}")
+    @Transactional
     public Response removeRoleFromUser(@PathParam("roleId") Long roleId, @PathParam("userId") Long userId) {
         Role role = Role.findById(roleId);
         User user = User.findById(userId);

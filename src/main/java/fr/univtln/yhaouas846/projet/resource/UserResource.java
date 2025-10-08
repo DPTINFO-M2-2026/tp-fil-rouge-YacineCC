@@ -1,6 +1,7 @@
 package fr.univtln.yhaouas846.projet.resource;
 
 import fr.univtln.yhaouas846.projet.entity.User;
+import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -28,6 +29,7 @@ public class UserResource {
     }
 
     @POST
+    @Transactional
     public Response createUser(@Valid User user) {
         try {
             user.persist();
@@ -41,6 +43,7 @@ public class UserResource {
 
     @PUT
     @Path("/{id}")
+    @Transactional
     public Response updateUser(@PathParam("id") Long id, @Valid User updatedUser) {
         User user = User.findById(id);
         if (user == null) {
@@ -65,6 +68,7 @@ public class UserResource {
 
     @DELETE
     @Path("/{id}")
+    @Transactional
     public Response deleteUser(@PathParam("id") Long id) {
         User user = User.findById(id);
         if (user == null) {
