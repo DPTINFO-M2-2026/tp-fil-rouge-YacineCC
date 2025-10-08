@@ -1,0 +1,60 @@
+💣 COMPRESSION DES VIDÉOS HELLBOMB
+===================================
+
+Tes vidéos sont actuellement TROP GROSSES pour Discord ! 🚨
+
+Tailles actuelles :
+- Halloween Hellbomb 2019 : 45 MB ❌ (> 8 MB limite)
+- Halloween Hellbomb 2022 : 26 MB ❌ (> 8 MB limite)
+- Halloween Hellbomb 2023 : 42 MB ❌ (> 8 MB limite)
+- Halloween Hellbomb 2024 : 22 MB ❌ (> 8 MB limite)
+
+Limite Discord :
+- Sans Nitro : 8 MB MAX
+- Avec Nitro : 50 MB MAX
+
+📦 SOLUTION : Compresser avec FFmpeg
+====================================
+
+1. Installe FFmpeg (si pas déjà fait) :
+   sudo apt install ffmpeg
+
+2. Compresse chaque vidéo :
+
+# Compression standard (vise ~5-7 MB)
+ffmpeg -i "Halloween Hellbomb 2019 Video.mp4" -vcodec h264 -crf 28 -preset fast -acodec aac -b:a 128k "hellbomb_2019_compressed.mp4"
+
+ffmpeg -i "Halloween Hellbomb 2022 Video.mp4" -vcodec h264 -crf 28 -preset fast -acodec aac -b:a 128k "hellbomb_2022_compressed.mp4"
+
+ffmpeg -i "Halloween Hellbomb 2023 Video.mp4" -vcodec h264 -crf 28 -preset fast -acodec aac -b:a 128k "hellbomb_2023_compressed.mp4"
+
+ffmpeg -i "Halloween Hellbomb 2024 Video.mp4" -vcodec h264 -crf 28 -preset fast -acodec aac -b:a 128k "hellbomb_2024_compressed.mp4"
+
+# Si encore trop gros, augmente CRF (28 → 30 ou 32)
+# Plus le CRF est élevé, plus la compression est forte
+
+# Compression aggressive (~3-4 MB)
+ffmpeg -i "input.mp4" -vcodec h264 -crf 32 -preset fast -s 1280x720 -r 24 -acodec aac -b:a 96k "output.mp4"
+
+🎯 PARAMÈTRES EXPLIQUÉS :
+-------------------------
+-crf 28     : Qualité (18=excellente, 28=bonne, 32=moyenne)
+-preset fast: Vitesse d'encodage
+-s 1280x720 : Résolution (optionnel, réduit la taille)
+-r 24       : Frame rate (optionnel, réduit de 30 fps à 24 fps)
+-b:a 128k   : Bitrate audio (128k = bonne qualité)
+
+📊 VÉRIFIER LA TAILLE APRÈS COMPRESSION :
+------------------------------------------
+ls -lh hellbomb_*_compressed.mp4
+
+🚀 UNE FOIS COMPRESSÉES :
+-------------------------
+1. Supprime ou renomme les originales
+2. Lance le bot : ./run-thrasher-bot.sh
+3. Dans Discord : !thrasher hellbomb
+
+Le bot choisira une vidéo au hasard et la postera ! 💣🛹
+
+⚠️  NOTE : Le bot vérifie automatiquement la taille avant d'envoyer.
+Si une vidéo fait > 8 MB, il t'avertira dans Discord.

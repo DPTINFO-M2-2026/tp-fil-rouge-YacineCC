@@ -41,14 +41,35 @@ if [ "$IMAGE_COUNT" -eq 0 ]; then
     echo "⚠️  ATTENTION: Aucune image trouvée dans $COVERS_DIR"
     echo "   Le bot ne pourra pas poster de covers !"
     echo "   Ajoute des images (.jpg, .png, .gif) dans ce dossier"
+else
+    echo "✅ $IMAGE_COUNT image(s) trouvée(s) dans $COVERS_DIR"
+fi
+
+# Vérifier que le dossier hellbomb existe
+HELLBOMB_DIR="discord-bot-resources/thrasher-hellbomb"
+if [ ! -d "$HELLBOMB_DIR" ]; then
+    echo "⚠️  Warning: Dossier hellbomb introuvable ($HELLBOMB_DIR)"
+    echo "   Crée-le pour utiliser la commande !thrasher hellbomb"
+else
+    # Vérifier qu'il y a des vidéos dans le dossier
+    VIDEO_COUNT=$(find "$HELLBOMB_DIR" -type f \( -iname "*.mp4" -o -iname "*.mov" -o -iname "*.avi" -o -iname "*.webm" \) | wc -l)
+    if [ "$VIDEO_COUNT" -eq 0 ]; then
+        echo "⚠️  ATTENTION: Aucune vidéo trouvée dans $HELLBOMB_DIR"
+        echo "   Ajoute des vidéos (.mp4, .mov, .avi, .webm) pour !thrasher hellbomb"
+    else
+        echo "✅ $VIDEO_COUNT vidéo(s) trouvée(s) dans $HELLBOMB_DIR"
+    fi
+fi
+
+# Ne quitter que si ni images ni vidéos
+if [ "$IMAGE_COUNT" -eq 0 ] && [ "$VIDEO_COUNT" -eq 0 ]; then
     echo ""
+    echo "❌ Aucun contenu disponible (ni images ni vidéos) !"
     read -p "Continuer quand même ? (y/N) " -n 1 -r
     echo
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         exit 1
     fi
-else
-    echo "✅ $IMAGE_COUNT image(s) trouvée(s) dans $COVERS_DIR"
 fi
 
 echo ""
@@ -63,8 +84,13 @@ fi
 echo ""
 echo "🚀 Démarrage du ThrasherBot..."
 echo "   Commandes Discord disponibles :"
-echo "   - !thrasher        : Poste une cover aléatoire"
-echo "   - !thrasher help   : Affiche l'aide"
+if [ "$IMAGE_COUNT" -gt 0 ]; then
+    echo "   - !thrasher          : Poste une cover aléatoire"
+fi
+if [ "$VIDEO_COUNT" -gt 0 ]; then
+    echo "   - !thrasher hellbomb : Poste une vidéo Hellbomb aléatoire"
+fi
+echo "   - !thrasher help     : Affiche l'aide"
 echo ""
 echo "   Appuie sur Ctrl+C pour arrêter le bot"
 echo "================================"
