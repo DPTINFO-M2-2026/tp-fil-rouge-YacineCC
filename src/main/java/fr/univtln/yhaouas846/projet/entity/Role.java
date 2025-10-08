@@ -3,8 +3,8 @@ package fr.univtln.yhaouas846.projet.entity;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.time.LocalDateTime;
 import java.util.Set;
 
@@ -62,7 +62,7 @@ public class Role extends PanacheEntity {
         joinColumns = @JoinColumn(name = "role_id"),
         inverseJoinColumns = @JoinColumn(name = "user_id")
     )
-    @JsonManagedReference("role-users")
+    @JsonIgnore
     public Set<User> users;
     
     @PrePersist

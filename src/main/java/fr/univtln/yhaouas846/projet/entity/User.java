@@ -4,7 +4,7 @@ import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
-import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.time.LocalDateTime;
 import java.util.Set;
 
@@ -42,11 +42,11 @@ public class User extends PanacheEntity {
     public Set<Message> messages;
     
     @ManyToMany(mappedBy = "members")
-    @JsonBackReference("guild-members")
+    @JsonIgnore
     public Set<Guild> guilds;
     
     @ManyToMany(mappedBy = "users")
-    @JsonBackReference("role-users")
+    @JsonIgnore
     public Set<Role> roles;
     
     @PrePersist

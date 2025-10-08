@@ -4,6 +4,7 @@ import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.time.LocalDateTime;
 import java.util.Set;
 
@@ -46,7 +47,7 @@ public class Guild extends PanacheEntity {
         joinColumns = @JoinColumn(name = "guild_id"),
         inverseJoinColumns = @JoinColumn(name = "user_id")
     )
-    @JsonManagedReference("guild-members")
+    @JsonIgnore
     public Set<User> members;
     
     @OneToMany(mappedBy = "guild", cascade = CascadeType.ALL)
