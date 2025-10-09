@@ -13,8 +13,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Random;
-import org.json.JSONArray;
-import org.json.JSONObject;
 
 /**
  * Bot Discord qui poste des covers aléatoires de Thrasher Magazine
@@ -119,18 +117,15 @@ public class ThrasherBot {
             // Commande !ask <question>
             if (content.toLowerCase().startsWith("!ask ")) {
                 String question = content.substring(5).trim();
-                message.getChannel().block().createMessage("⏳ Je demande à Mistral AI...").block();
+                message.getChannel().block().createMessage("⏳ Je demande à l'IA...").block();
                 new Thread(() -> {
                     try {
-                        String mistralToken = MistralTokenReader.readToken();
-                        MistralClient mistralClient = new MistralClient(mistralToken);
-                        String response = mistralClient.ask(question);
-                        System.out.println("Réponse Mistral brute : " + response);
-                        // Extraire la réponse du champ JSON
-                        String answer = extractMistralAnswer(response);
-                        message.getChannel().block().createMessage("🤖 Mistral AI : " + answer).block();
+                        LangChain4jClient langChainClient = new LangChain4jClient();
+                        String answer = langChainClient.ask(question);
+                        System.out.println("Réponse IA : " + answer);
+                        message.getChannel().block().createMessage("🤖 IA : " + answer).block();
                     } catch (Exception e) {
-                        message.getChannel().block().createMessage("❌ Erreur Mistral AI : " + e.getMessage()).block();
+                        message.getChannel().block().createMessage("❌ Erreur IA : " + e.getMessage()).block();
                         e.printStackTrace();
                     }
                 }).start();
@@ -153,23 +148,6 @@ public class ThrasherBot {
         gateway.onDisconnect().block();
     }
 
-    /**
-     * Extrait le champ "content" de la réponse JSON de Mistral AI
-     */
-    private static String extractMistralAnswer(String json) {
-        try {
-            JSONObject obj = new JSONObject(json);
-            JSONArray choices = obj.getJSONArray("choices");
-            if (choices.length() > 0) {
-                JSONObject message = choices.getJSONObject(0).getJSONObject("message");
-                return message.getString("content");
-            }
-            return "(pas de réponse)";
-        } catch (Exception e) {
-            return "(erreur JSON : " + e.getMessage() + ")";
-        }
-    }
-    
     /**
      * Gère la commande !thrasher - Poste une cover aléatoire
      */
