@@ -14,6 +14,8 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Random;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 /**
  * Bot Discord qui poste des covers aléatoires de Thrasher Magazine
@@ -36,9 +38,14 @@ public class ThrasherBotReactive {
     private static final Random random = new Random();
     
     public static void main(String[] args) {
-        // REMPLACE "TOKEN" PAR TON VRAI TOKEN DISCORD BOT  
-        String token = "TOKEN";
-        
+        String token;
+        try {
+            token = TokenReader.readToken();
+        } catch (Exception e) {
+            System.err.println("Erreur lors de la lecture du token : " + e.getMessage());
+            return;
+        }
+
         // Vérifier que le dossier existe
         File coversDir = new File(COVERS_DIRECTORY);
         if (!coversDir.exists()) {
@@ -123,6 +130,29 @@ public class ThrasherBotReactive {
                 // Commande !thrasher help
                 else if (content.equalsIgnoreCase("!thrasher help")) {
                     return handleHelpCommand(message);
+                }
+                // Commande !ask <question>
+                else if (content.toLowerCase().startsWith("!ask ")) {
+                    String question = content.substring(5).trim();
+                    return message.getChannel().flatMap(channel ->
+                        channel.createMessage("⏳ Je demande à Mistral AI...")
+                    ).then(
+                        Mono.fromCallable(() -> {
+                            try {
+                                String mistralToken = MistralTokenReader.readToken();
+                                MistralClient mistralClient = new MistralClient(mistralToken);
+                                String response = mistralClient.ask(question);
+                                System.out.println("Réponse Mistral brute : " + response);
+                                String answer = extractMistralAnswer(response);
+                                return answer;
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                                return "❌ Erreur Mistral AI : " + e.getMessage();
+                            }
+                        })
+                        .flatMap(answer -> message.getChannel().flatMap(channel -> channel.createMessage("🤖 Mistral AI : " + answer)))
+                        .then()
+                    );
                 }
                 
                 return Mono.empty();
@@ -303,5 +333,21 @@ public class ThrasherBotReactive {
         });
         
         return files != null ? files : new File[0];
+    }
+    
+    // Ajoute la méthode d'extraction JSON à la fin de la classe :
+    private static String extractMistralAnswer(String json) {
+        try {
+            JSONObject obj = new JSONObject(json);
+            JSONArray choices = obj.getJSONArray("choices");
+            if (choices.length() > 0) {
+                JSONObject message = choices.getJSONObject(0).getJSONObject("message");
+                return message.getString("content");
+            }
+            return "(pas de réponse)";
+        } catch (Exception e) {
+            // Affiche la réponse brute pour debug
+            return "(erreur JSON : " + e.getMessage() + ")\nRéponse brute :\n" + json;
+        }
     }
 }

@@ -12,12 +12,9 @@ import discord4j.rest.util.Color;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Random;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 /**
  * Bot Discord qui poste des covers aléatoires de Thrasher Magazine
@@ -40,9 +37,14 @@ public class ThrasherBot {
     private static final Random random = new Random();
     
     public static void main(String[] args) {
-        // REMPLACE "TOKEN" PAR TON VRAI TOKEN DISCORD BOT
-        String token = "TOKEN";
-        
+        String token;
+        try {
+            token = TokenReader.readToken();
+        } catch (Exception e) {
+            System.err.println("Erreur lors de la lecture du token : " + e.getMessage());
+            return;
+        }
+
         // Vérifier que le dossier existe
         File coversDir = new File(COVERS_DIRECTORY);
         if (!coversDir.exists()) {
@@ -50,22 +52,22 @@ public class ThrasherBot {
             System.err.println("📁 Crée le dossier et ajoute des images de covers Thrasher.");
             return;
         }
-        
+
         // Vérifier que le dossier hellbomb existe
         File hellbombDir = new File(HELLBOMB_DIRECTORY);
         if (!hellbombDir.exists()) {
             System.err.println("⚠️  Warning: Le dossier " + HELLBOMB_DIRECTORY + " n'existe pas !");
             System.err.println("📁 Crée le dossier et ajoute des vidéos Hellbomb pour utiliser !thrasher hellbomb");
         }
-        
+
         // Connexion au bot Discord
         DiscordClient client = DiscordClient.create(token);
         GatewayDiscordClient gateway = client.login().block();
-        
+
         System.out.println("════════════════════════════════════");
         System.out.println("  🛹 Thrasher Bot Démarré 🛹");
         System.out.println("════════════════════════════════════");
-        
+
         // Event: Quand le bot est prêt
         gateway.on(ReadyEvent.class).subscribe(event -> {
             User self = event.getSelf();
@@ -106,16 +108,35 @@ public class ThrasherBot {
         // Event: Quand un message est créé
         gateway.on(MessageCreateEvent.class).subscribe(event -> {
             Message message = event.getMessage();
-            
+
             // Ignore les messages du bot lui-même
             if (message.getAuthor().map(User::isBot).orElse(false)) {
                 return;
             }
-            
+
             String content = message.getContent().trim();
-            
+
+            // Commande !ask <question>
+            if (content.toLowerCase().startsWith("!ask ")) {
+                String question = content.substring(5).trim();
+                message.getChannel().block().createMessage("⏳ Je demande à Mistral AI...").block();
+                new Thread(() -> {
+                    try {
+                        String mistralToken = MistralTokenReader.readToken();
+                        MistralClient mistralClient = new MistralClient(mistralToken);
+                        String response = mistralClient.ask(question);
+                        System.out.println("Réponse Mistral brute : " + response);
+                        // Extraire la réponse du champ JSON
+                        String answer = extractMistralAnswer(response);
+                        message.getChannel().block().createMessage("🤖 Mistral AI : " + answer).block();
+                    } catch (Exception e) {
+                        message.getChannel().block().createMessage("❌ Erreur Mistral AI : " + e.getMessage()).block();
+                        e.printStackTrace();
+                    }
+                }).start();
+            }
             // Commande !thrasher hellbomb
-            if (content.equalsIgnoreCase("!thrasher hellbomb")) {
+            else if (content.equalsIgnoreCase("!thrasher hellbomb")) {
                 handleHellbombCommand(message, hellbombDir);
             }
             // Commande !thrasher
@@ -127,9 +148,26 @@ public class ThrasherBot {
                 handleHelpCommand(message);
             }
         });
-        
+
         // Garder le bot en vie
         gateway.onDisconnect().block();
+    }
+
+    /**
+     * Extrait le champ "content" de la réponse JSON de Mistral AI
+     */
+    private static String extractMistralAnswer(String json) {
+        try {
+            JSONObject obj = new JSONObject(json);
+            JSONArray choices = obj.getJSONArray("choices");
+            if (choices.length() > 0) {
+                JSONObject message = choices.getJSONObject(0).getJSONObject("message");
+                return message.getString("content");
+            }
+            return "(pas de réponse)";
+        } catch (Exception e) {
+            return "(erreur JSON : " + e.getMessage() + ")";
+        }
     }
     
     /**

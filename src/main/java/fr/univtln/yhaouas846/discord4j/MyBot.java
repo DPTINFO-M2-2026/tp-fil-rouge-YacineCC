@@ -22,19 +22,24 @@ import discord4j.core.object.entity.User;
 public class MyBot {
 
     public static void main(String[] args) {
-        // REMPLACE "TOKEN" PAR TON VRAI TOKEN DISCORD BOT
-        String token = "TOKEN";
-        
+        String token;
+        try {
+            token = TokenReader.readToken();
+        } catch (Exception e) {
+            System.err.println("Erreur lors de la lecture du token : " + e.getMessage());
+            return;
+        }
+
         // Création du client Discord
         DiscordClient client = DiscordClient.create(token);
-        
+
         // Connexion et récupération du client gateway
         GatewayDiscordClient gateway = client.login().block();
-        
+
         System.out.println("======================");
         System.out.println("  Bot Discord Démarré");
         System.out.println("======================");
-        
+
         // Event: Quand le bot est prêt
         gateway.on(ReadyEvent.class).subscribe(event -> {
             User self = event.getSelf();
