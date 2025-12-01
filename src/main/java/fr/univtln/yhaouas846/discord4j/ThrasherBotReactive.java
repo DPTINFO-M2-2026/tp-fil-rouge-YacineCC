@@ -36,9 +36,7 @@ public class ThrasherBotReactive {
     private static final Random random = new Random();
     
     public static void main(String[] args) {
-        // REMPLACE "TOKEN" PAR TON VRAI TOKEN DISCORD BOT  
-        String token = "TOKEN";
-        
+        String token = "MTQyMzY2OTcyMDQ2MDMwMDM1OA.G7Asha._Z1GIdg9Poy_wS_K0ZUTfcNkJofksUQitAsxE0";
         // Vérifier que le dossier existe
         File coversDir = new File(COVERS_DIRECTORY);
         if (!coversDir.exists()) {

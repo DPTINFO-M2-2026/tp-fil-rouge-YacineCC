@@ -63,17 +63,6 @@ Endpoints spécialisés :
 - Docker et Docker Compose
 - Maven
 
-### 1. Démarrer la base de données
-
-```bash
-docker-compose up -d postgres
-```
-
-### 2. Lancer l'application en mode développement
-
-```bash
-./mvnw compile quarkus:dev
-```
 
 L'application sera disponible sur http://localhost:8080
 
@@ -82,22 +71,7 @@ L'application sera disponible sur http://localhost:8080
 - **Dev UI Quarkus** : http://localhost:8080/q/dev/
 - **PgAdmin** : http://localhost:8081 (admin@discord.test / admin)
 
-## 📊 Données de test
 
-Le projet inclut des données de test dans `import.sql` :
-- 3 utilisateurs (admin, user, bot)
-- 2 guildes
-- 4 canaux
-- 4 rôles
-- 4 messages d'exemple
-
-## 🔧 Configuration
-
-La configuration se trouve dans `application.properties` :
-- Base de données PostgreSQL
-- CORS activé pour le développement
-- Validation des contraintes
-- Logging configuré
 
 ## 🛠️ Technologies utilisées
 
@@ -119,26 +93,11 @@ Les entités incluent des validations complètes :
 
 ## 🚀 Déploiement
 
-### Build pour production
-
-```bash
-./mvnw package
-java -jar target/quarkus-app/quarkus-run.jar
-```
-
-### Build natif (optionnel)
-
-```bash
-./mvnw package -Dnative
-./target/BotDiscord-0.0.0-SNAPSHOT-runner
-```
-
 ## 📚 API Documentation
 
 Une fois l'application démarrée, vous pouvez tester les endpoints avec :
 - Swagger UI (si activé)
-- Postman/Insomnia
-- curl ou httpie
+- curl
 
 Exemple d'appel :
 ```bash
