@@ -40,6 +40,7 @@ nb-configuration.xml
 .env
 token.txt
 mistral_token.txt
+GEMINI_API_KEY
 langchain4j.properties
 
 # Plugin directory
