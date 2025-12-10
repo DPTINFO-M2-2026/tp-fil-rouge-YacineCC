@@ -1,7 +1,7 @@
 package fr.univtln.yhaouas846.projet.resource;
 
+import fr.univtln.yhaouas846.discord4j.services.DiscordBotService;
 import fr.univtln.yhaouas846.projet.entity.User;
-import fr.univtln.yhaouas846.projet.service.DiscordBotService;
 import io.restassured.http.ContentType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

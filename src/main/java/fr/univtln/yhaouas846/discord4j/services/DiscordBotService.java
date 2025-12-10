@@ -1,4 +1,4 @@
-package fr.univtln.yhaouas846.projet.service;
+package fr.univtln.yhaouas846.discord4j.services;
 
 import fr.univtln.yhaouas846.projet.entity.*;
 import jakarta.enterprise.context.ApplicationScoped;

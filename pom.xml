@@ -67,6 +67,7 @@
             <version>3.2.6</version>
         </dependency>
         
+        
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-hibernate-validator</artifactId>
@@ -111,12 +112,12 @@
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j</artifactId>
-            <version>0.35.0</version>
+            <version>1.7.1</version>
         </dependency>
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-ollama</artifactId>
-            <version>0.35.0</version>
+            <version>1.7.1</version>
         </dependency>
     </dependencies>
 

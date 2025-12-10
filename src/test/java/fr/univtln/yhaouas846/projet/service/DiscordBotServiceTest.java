@@ -1,5 +1,6 @@
 package fr.univtln.yhaouas846.projet.service;
 
+import fr.univtln.yhaouas846.discord4j.services.DiscordBotService;
 import fr.univtln.yhaouas846.projet.entity.*;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.TestTransaction;

@@ -1,8 +1,8 @@
 package fr.univtln.yhaouas846.projet.resource;
 
+import fr.univtln.yhaouas846.discord4j.services.DiscordBotService;
 import fr.univtln.yhaouas846.projet.entity.Guild;
 import fr.univtln.yhaouas846.projet.entity.Message;
-import fr.univtln.yhaouas846.projet.service.DiscordBotService;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
