@@ -32,6 +32,20 @@ public class UserResource {
     @Transactional
     public Response createUser(@Valid User user) {
         try {
+            // Check if user already exists by discordId
+            if (user.discordId != null) {
+                User existingUser = User.find("discordId", user.discordId).firstResult();
+                if (existingUser != null) {
+                    // Update existing user
+                    existingUser.username = user.username;
+                    existingUser.discriminator = user.discriminator;
+                    existingUser.avatarUrl = user.avatarUrl;
+                    existingUser.isBot = user.isBot;
+                    existingUser.persist();
+                    return Response.ok(existingUser).build();
+                }
+            }
+            
             user.persist();
             return Response.status(Response.Status.CREATED).entity(user).build();
         } catch (Exception e) {

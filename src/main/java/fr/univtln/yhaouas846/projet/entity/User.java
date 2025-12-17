@@ -34,11 +34,14 @@ public class User extends PanacheEntity {
     @Column(name = "created_at", nullable = false)
     public LocalDateTime createdAt;
     
+    @Column(name = "discord_id", unique = true)
+    public String discordId;
+
     @Column(name = "is_bot")
     public boolean isBot = false;
     
     @OneToMany(mappedBy = "author", cascade = CascadeType.ALL)
-    @JsonManagedReference("user-messages")
+    @JsonIgnore
     public Set<Message> messages;
     
     @ManyToMany(mappedBy = "members")

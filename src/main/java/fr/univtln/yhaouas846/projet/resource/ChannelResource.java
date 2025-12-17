@@ -33,6 +33,22 @@ public class ChannelResource {
     @Transactional
     public Response createChannel(@Valid Channel channel) {
         try {
+            // Check if channel already exists by discordId
+            if (channel.discordId != null) {
+                Channel existingChannel = Channel.find("discordId", channel.discordId).firstResult();
+                if (existingChannel != null) {
+                    // Update existing channel
+                    existingChannel.name = channel.name;
+                    existingChannel.description = channel.description;
+                    existingChannel.type = channel.type;
+                    existingChannel.position = channel.position;
+                    existingChannel.isNsfw = channel.isNsfw;
+                    existingChannel.guild = channel.guild;
+                    existingChannel.persist();
+                    return Response.ok(existingChannel).build();
+                }
+            }
+
             channel.persist();
             return Response.status(Response.Status.CREATED).entity(channel).build();
         } catch (Exception e) {

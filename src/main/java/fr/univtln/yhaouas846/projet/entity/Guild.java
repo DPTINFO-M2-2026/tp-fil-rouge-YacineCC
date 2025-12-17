@@ -32,13 +32,16 @@ public class Guild extends PanacheEntity {
     @Column(name = "created_at", nullable = false)
     public LocalDateTime createdAt;
     
+    @Column(name = "discord_id", unique = true)
+    public String discordId;
+
     @Min(2)
     @Max(800000)
     @Column(name = "member_limit")
     public Integer memberLimit = 500000;
     
     @OneToMany(mappedBy = "guild", cascade = CascadeType.ALL)
-    @JsonManagedReference("guild-channels")
+    @JsonIgnore
     public Set<Channel> channels;
     
     @ManyToMany

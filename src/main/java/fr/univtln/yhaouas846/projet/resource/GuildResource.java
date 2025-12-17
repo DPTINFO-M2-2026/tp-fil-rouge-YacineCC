@@ -33,6 +33,21 @@ public class GuildResource {
     @Transactional
     public Response createGuild(@Valid Guild guild) {
         try {
+            // Check if guild already exists by discordId
+            if (guild.discordId != null) {
+                Guild existingGuild = Guild.find("discordId", guild.discordId).firstResult();
+                if (existingGuild != null) {
+                    // Update existing guild
+                    existingGuild.name = guild.name;
+                    existingGuild.description = guild.description;
+                    existingGuild.iconUrl = guild.iconUrl;
+                    existingGuild.memberLimit = guild.memberLimit;
+                    existingGuild.owner = guild.owner; // Update owner if changed
+                    existingGuild.persist();
+                    return Response.ok(existingGuild).build();
+                }
+            }
+
             guild.persist();
             return Response.status(Response.Status.CREATED).entity(guild).build();
         } catch (Exception e) {

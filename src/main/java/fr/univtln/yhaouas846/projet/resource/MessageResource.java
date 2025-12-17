@@ -34,6 +34,19 @@ public class MessageResource {
     @Transactional
     public Response createMessage(@Valid Message message) {
         try {
+            // Check if message already exists by discordId
+            if (message.discordId != null) {
+                Message existingMessage = Message.find("discordId", message.discordId).firstResult();
+                if (existingMessage != null) {
+                    // Update existing message
+                    existingMessage.content = message.content;
+                    existingMessage.isEdited = message.isEdited;
+                    existingMessage.updatedAt = message.updatedAt;
+                    existingMessage.persist();
+                    return Response.ok(existingMessage).build();
+                }
+            }
+
             message.persist();
             return Response.status(Response.Status.CREATED).entity(message).build();
         } catch (Exception e) {

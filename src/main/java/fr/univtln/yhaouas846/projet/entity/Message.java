@@ -18,18 +18,19 @@ public class Message extends PanacheEntity {
     @NotNull
     @ManyToOne
     @JoinColumn(name = "author_id", nullable = false)
-    @JsonBackReference("user-messages")
     public User author;
     
     @NotNull
     @ManyToOne
     @JoinColumn(name = "channel_id", nullable = false)
-    @JsonBackReference("channel-messages")
     public Channel channel;
     
     @Column(name = "created_at", nullable = false)
     public LocalDateTime createdAt;
     
+    @Column(name = "discord_id", unique = true)
+    public String discordId;
+
     @Column(name = "updated_at")
     public LocalDateTime updatedAt;
     
