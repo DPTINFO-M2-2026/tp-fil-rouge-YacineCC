@@ -1,5 +1,48 @@
 # BotDiscord
 
+## Docker (dev + runtime)
+
+Ce dépôt contient un Dockerfile multi-stage et un docker-compose de développement.
+
+### Développement (hot reload + Postgres)
+
+Prérequis : Docker + Docker Compose v2.
+
+- Démarrer l'application en mode dev (rechargement à chaud) + une base PostgreSQL :
+
+```bash
+docker compose -f docker-compose.dev.yml up --build
+```
+
+- Accès : http://localhost:8080
+- Debug Java (optionnel) : port 5005 exposé par le conteneur `app`
+
+Arrêt :
+
+```bash
+docker compose -f docker-compose.dev.yml down
+```
+
+Réinitialiser complètement (supprime le volume Postgres) :
+
+```bash
+docker compose -f docker-compose.dev.yml down -v
+```
+
+### Image runtime (JRE minimal)
+
+Construire une image production-like (sans Maven, basée sur un JRE) :
+
+```bash
+docker build --target runtime -t botdiscord:runtime .
+```
+
+Exécuter :
+
+```bash
+docker run --rm -p 8080:8080 botdiscord:runtime
+```
+
 This project uses Quarkus, the Supersonic Subatomic Java Framework.
 
 If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.
