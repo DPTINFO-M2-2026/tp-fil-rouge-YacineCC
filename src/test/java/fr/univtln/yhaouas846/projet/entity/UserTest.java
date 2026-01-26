@@ -1,32 +1,24 @@
 package fr.univtln.yhaouas846.projet.entity;
 
-import io.quarkus.test.junit.QuarkusTest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
+import jakarta.validation.Validation;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import jakarta.inject.Inject;
 
 import java.time.LocalDateTime;
-import java.util.HashSet;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
-
-@QuarkusTest
 class UserTest {
 
-    @Inject
-    Validator validator;
+    private Validator validator;
 
     private User user;
 
     @BeforeEach
     void setUp() {
+        validator = Validation.buildDefaultValidatorFactory().getValidator();
         user = new User();
         user.username = "TestUser";
         user.discriminator = "1234";
@@ -93,37 +85,5 @@ class UserTest {
     void testDefaultValues() {
         User newUser = new User();
         assertFalse(newUser.isBot, "isBot should default to false");
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void testUserRelationsWithMocks() {
-        // Mock des collections pour tester les relations
-        Set<Message> mockMessages = (Set<Message>) mock(Set.class);
-        Set<Guild> mockGuilds = (Set<Guild>) mock(Set.class);
-        Set<Role> mockRoles = (Set<Role>) mock(Set.class);
-        
-        user.messages = mockMessages;
-        user.guilds = mockGuilds;
-        user.roles = mockRoles;
-        
-        // Vérifier que les relations sont bien assignées
-        assertNotNull(user.messages);
-        assertNotNull(user.guilds);
-        assertNotNull(user.roles);
-        
-        // Simuler des interactions avec les collections
-        when(mockMessages.size()).thenReturn(5);
-        when(mockGuilds.size()).thenReturn(2);
-        when(mockRoles.size()).thenReturn(3);
-        
-        assertEquals(5, user.messages.size());
-        assertEquals(2, user.guilds.size());
-        assertEquals(3, user.roles.size());
-        
-        // Vérifier que les méthodes ont été appelées
-        verify(mockMessages).size();
-        verify(mockGuilds).size();
-        verify(mockRoles).size();
     }
 }

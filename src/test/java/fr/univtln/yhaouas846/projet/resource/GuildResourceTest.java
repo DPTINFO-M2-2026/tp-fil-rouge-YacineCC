@@ -3,20 +3,15 @@ package fr.univtln.yhaouas846.projet.resource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestMethodOrder;
-import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
-import org.junit.jupiter.api.Order;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.Matchers.greaterThan;
 
 @QuarkusTest
-@TestMethodOrder(OrderAnnotation.class)
 class GuildResourceTest {
 
     @Test
-    @Order(1)
     void testGetAllGuilds() {
         given()
                 .when().get("/api/guilds")
@@ -27,7 +22,6 @@ class GuildResourceTest {
     }
 
     @Test
-    @Order(2)
     void testGetGuildById() {
         given()
                 .when().get("/api/guilds/200")
@@ -39,7 +33,6 @@ class GuildResourceTest {
     }
 
     @Test
-    @Order(3)
     void testCreateGuild() {
         String newGuild = "{\n" +
                 "\"name\": \"New API Guild\",\n" +
@@ -48,18 +41,21 @@ class GuildResourceTest {
                 "\"memberLimit\": 150\n" +
                 "}";
 
-        given()
-                .contentType(ContentType.JSON)
-                .body(newGuild)
-                .when().post("/api/guilds")
-                .then()
-                .statusCode(201)
-                .contentType(ContentType.JSON)
-                .body("name", equalTo("New API Guild"));
+        Integer guildId = given()
+            .contentType(ContentType.JSON)
+            .body(newGuild)
+            .when().post("/api/guilds")
+            .then()
+            .statusCode(201)
+            .contentType(ContentType.JSON)
+            .body("name", equalTo("New API Guild"))
+            .extract().path("id");
+
+        // Cleanup
+        given().when().delete("/api/guilds/" + guildId).then().statusCode(204);
     }
 
     @Test
-    @Order(4)
     void testGetGuildMembers() {
         given()
                 .when().get("/api/guilds/200/members")
@@ -70,20 +66,17 @@ class GuildResourceTest {
     }
 
     @Test
-    @Order(5)
-    void testAddMemberToGuild() {
+        void testAddAndRemoveMemberToGuild_roundTrip() {
+        // Add user 103 to guild 200
         given()
-                .when().post("/api/guilds/200/members/103")
-                .then()
-                .statusCode(200);
-    }
+            .when().post("/api/guilds/200/members/103")
+            .then()
+            .statusCode(200);
 
-    @Test
-    @Order(6)
-    void testRemoveMemberFromGuild() {
+        // Remove user 103 from guild 200 (restore initial state)
         given()
-                .when().delete("/api/guilds/200/members/103")
-                .then()
-                .statusCode(200);
+            .when().delete("/api/guilds/200/members/103")
+            .then()
+            .statusCode(200);
     }
 }

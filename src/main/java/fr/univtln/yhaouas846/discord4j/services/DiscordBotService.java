@@ -1,19 +1,66 @@
 package fr.univtln.yhaouas846.discord4j.services;
 
 import fr.univtln.yhaouas846.projet.entity.*;
+import fr.univtln.yhaouas846.projet.repository.ChannelRepository;
+import fr.univtln.yhaouas846.projet.repository.GuildRepository;
+import fr.univtln.yhaouas846.projet.repository.MessageRepository;
+import fr.univtln.yhaouas846.projet.repository.RoleRepository;
+import fr.univtln.yhaouas846.projet.repository.UserRepository;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.HashSet;
 import java.util.Set;
 
+/**
+ * Service applicatif (couche métier) fournissant des opérations de haut niveau pour un bot Discord.
+ *
+ * <p>Ce service orchestre la création d'une guilde avec ses canaux et rôles par défaut, l'envoi
+ * de messages et la gestion d'appartenance (membres/rôles). Il s'appuie sur des repositories
+ * Panache pour persister les entités du domaine ({@code User}, {@code Guild}, {@code Channel},
+ * {@code Role}, {@code Message}).</p>
+ *
+ * <h2>Transactions</h2>
+ * <p>Les méthodes qui modifient l'état en base sont annotées {@link jakarta.transaction.Transactional}.
+ * Les méthodes de lecture (ou purement calculatoires) peuvent rester non transactionnelles.</p>
+ *
+ * <h2>Permissions</h2>
+ * <p>Le contrôle d'accès est volontairement simple :
+ * un propriétaire de guilde est toujours autorisé ; sinon, il faut être membre et posséder un rôle
+ * (dans la guilde) autorisant l'action ({@code canSendMessages}/{@code canManageMessages}).</p>
+ */
 @ApplicationScoped
 public class DiscordBotService {
 
+    @Inject
+    UserRepository userRepository;
+
+    @Inject
+    GuildRepository guildRepository;
+
+    @Inject
+    ChannelRepository channelRepository;
+
+    @Inject
+    RoleRepository roleRepository;
+
+    @Inject
+    MessageRepository messageRepository;
+
+    /**
+     * Crée une guilde et initialise les canaux/rôles par défaut.
+     *
+     * @param guildName nom de la guilde
+     * @param ownerUsername username du propriétaire (doit exister)
+     * @return guilde persistée
+     * @throws IllegalArgumentException si le propriétaire est introuvable
+     */
     @Transactional
     public Guild createGuildWithDefaultChannels(String guildName, String ownerUsername) {
         // Trouver ou créer l'utilisateur propriétaire
-        User owner = User.find("username", ownerUsername).firstResult();
+        User owner = userRepository.findByUsername(ownerUsername);
         if (owner == null) {
             throw new IllegalArgumentException("Owner user not found: " + ownerUsername);
         }
@@ -24,7 +71,10 @@ public class DiscordBotService {
         guild.description = "Nouvelle guilde créée automatiquement";
         guild.owner = owner;
         guild.createdAt = LocalDateTime.now();
-        guild.persist();
+        if (guild.members == null) {
+            guild.members = new HashSet<>();
+        }
+        guildRepository.persist(guild);
 
         // Créer les canaux par défaut
         createDefaultChannels(guild);
@@ -35,6 +85,13 @@ public class DiscordBotService {
         return guild;
     }
 
+    /**
+     * Crée les canaux par défaut d'une guilde nouvellement créée.
+     *
+     * <p>Les canaux créés ici sont des exemples (général, annonces, vocal).</p>
+     *
+     * @param guild guilde cible
+     */
     @Transactional
     public void createDefaultChannels(Guild guild) {
         // Canal général
@@ -44,7 +101,7 @@ public class DiscordBotService {
         general.type = Channel.ChannelType.TEXT;
         general.guild = guild;
         general.position = 0;
-        general.persist();
+        channelRepository.persist(general);
 
         // Canal d'annonces
         Channel announcements = new Channel();
@@ -53,7 +110,7 @@ public class DiscordBotService {
         announcements.type = Channel.ChannelType.TEXT;
         announcements.guild = guild;
         announcements.position = 1;
-        announcements.persist();
+        channelRepository.persist(announcements);
 
         // Canal vocal
         Channel voice = new Channel();
@@ -62,9 +119,16 @@ public class DiscordBotService {
         voice.type = Channel.ChannelType.VOICE;
         voice.guild = guild;
         voice.position = 2;
-        voice.persist();
+        channelRepository.persist(voice);
     }
 
+    /**
+     * Crée les rôles par défaut d'une guilde.
+     *
+     * <p>Deux rôles sont créés : "Admin" (permissions étendues) et "Member" (permissions de base).</p>
+     *
+     * @param guild guilde cible
+     */
     @Transactional
     public void createDefaultRoles(Guild guild) {
         // Rôle Admin
@@ -78,7 +142,7 @@ public class DiscordBotService {
         adminRole.canManageMessages = true;
         adminRole.canKickMembers = true;
         adminRole.canBanMembers = true;
-        adminRole.persist();
+        roleRepository.persist(adminRole);
 
         // Rôle Member
         Role memberRole = new Role();
@@ -88,13 +152,26 @@ public class DiscordBotService {
         memberRole.position = 1;
         memberRole.canSendMessages = true;
         memberRole.canReadMessages = true;
-        memberRole.persist();
+        roleRepository.persist(memberRole);
     }
 
+    /**
+     * Envoie un message dans un canal au nom d'un auteur.
+     *
+     * <p>Cette méthode vérifie l'existence des entités et applique un contrôle de permission avant
+     * la persistance.</p>
+     *
+     * @param authorId identifiant de l'auteur
+     * @param channelId identifiant du canal
+     * @param content contenu du message
+     * @return message persisté
+     * @throws IllegalArgumentException si auteur ou canal introuvable
+     * @throws SecurityException si l'auteur n'a pas la permission d'écrire
+     */
     @Transactional
     public Message sendMessage(Long authorId, Long channelId, String content) {
-        User author = User.findById(authorId);
-        Channel channel = Channel.findById(channelId);
+        User author = userRepository.findById(authorId);
+        Channel channel = channelRepository.findById(channelId);
 
         if (author == null || channel == null) {
             throw new IllegalArgumentException("Author or channel not found");
@@ -110,76 +187,139 @@ public class DiscordBotService {
         message.author = author;
         message.channel = channel;
         message.createdAt = LocalDateTime.now();
-        message.persist();
+        messageRepository.persist(message);
 
         return message;
     }
 
+    /**
+     * Détermine si un utilisateur peut publier dans un canal.
+     *
+     * <p>Règles : propriétaire de guilde autorisé ; sinon, il faut être membre et posséder un rôle
+     * dans la guilde avec {@code canSendMessages=true}.</p>
+     *
+     * @param user utilisateur
+     * @param channel canal
+     * @return {@code true} si autorisé
+     */
     public boolean canUserSendMessage(User user, Channel channel) {
         // Vérifier si l'utilisateur est membre de la guilde
         Guild guild = channel.guild;
-        boolean isMember = guild.members.contains(user) || guild.owner.equals(user);
+        if (guild != null && guild.owner != null && guild.owner.equals(user)) {
+            return true;
+        }
+
+        Set<User> members = guild == null ? null : guild.members;
+        boolean isMember = members != null && members.contains(user);
         
         if (!isMember) {
             return false;
         }
 
         // Vérifier les permissions des rôles
+        if (user.roles == null || user.roles.isEmpty()) {
+            return false;
+        }
         return user.roles.stream()
-                .anyMatch(role -> role.guild.equals(guild) && role.canSendMessages);
+                .anyMatch(role -> role != null && role.guild != null && role.guild.equals(guild) && role.canSendMessages);
     }
 
+    /**
+     * Récupère les derniers messages d'un canal (hors messages supprimés).
+     *
+     * @param channelId identifiant du canal
+     * @param limit nombre maximum de résultats
+     * @return liste de messages
+     * @throws IllegalArgumentException si le canal est introuvable
+     */
     public List<Message> getChannelMessages(Long channelId, int limit) {
-        Channel channel = Channel.findById(channelId);
+        Channel channel = channelRepository.findById(channelId);
         if (channel == null) {
             throw new IllegalArgumentException("Channel not found");
         }
 
-        return Message.find("channel = ?1 AND isDeleted = false ORDER BY createdAt DESC", channel)
-                     .page(0, limit)
-                     .list();
+        return messageRepository.findChannelMessages(channel, limit);
     }
 
+    /**
+     * Ajoute un utilisateur à une guilde et lui assigne le rôle "Member" si présent.
+     *
+     * @param userId identifiant de l'utilisateur
+     * @param guildId identifiant de la guilde
+     * @throws IllegalArgumentException si utilisateur ou guilde introuvable
+     */
     @Transactional
     public void addUserToGuild(Long userId, Long guildId) {
-        User user = User.findById(userId);
-        Guild guild = Guild.findById(guildId);
+        User user = userRepository.findById(userId);
+        Guild guild = guildRepository.findById(guildId);
 
         if (user == null || guild == null) {
             throw new IllegalArgumentException("User or guild not found");
         }
 
         // Ajouter l'utilisateur à la guilde
+        if (guild.members == null) {
+            guild.members = new HashSet<>();
+        }
         guild.members.add(user);
         
         // Assigner le rôle Member par défaut
-        Role memberRole = Role.find("guild = ?1 AND name = ?2", guild, "Member").firstResult();
+        Role memberRole = roleRepository.findMemberRole(guild);
         if (memberRole != null) {
+            if (memberRole.users == null) {
+                memberRole.users = new HashSet<>();
+            }
             memberRole.users.add(user);
-            memberRole.persist();
+            roleRepository.persist(memberRole);
         }
 
-        guild.persist();
+        guildRepository.persist(guild);
     }
 
+    /**
+     * Retourne les guildes d'un utilisateur (propriétaire ou membre).
+     *
+     * @param userId identifiant de l'utilisateur
+     * @return liste de guildes
+     * @throws IllegalArgumentException si l'utilisateur est introuvable
+     */
     public List<Guild> getUserGuilds(Long userId) {
-        User user = User.findById(userId);
+        User user = userRepository.findById(userId);
         if (user == null) {
             throw new IllegalArgumentException("User not found");
         }
 
-        return Guild.find("owner = ?1 OR ?2 MEMBER OF members", user, user).list();
+        return guildRepository.findByOwnerOrMember(user);
     }
 
+    /**
+     * Détermine si un utilisateur est considéré comme "propriétaire du bot".
+     *
+     * <p>Implémentation volontairement simple : compare le {@code username} à une valeur fixe.</p>
+     *
+     * @param userId identifiant de l'utilisateur
+     * @return {@code true} si l'utilisateur est considéré comme bot owner
+     */
     public boolean isUserBotOwner(Long userId) {
-        User user = User.findById(userId);
+        User user = userRepository.findById(userId);
         return user != null && "AdminUser".equals(user.username);
     }
 
+    /**
+     * Supprime logiquement un message (marque {@code isDeleted=true}) si le demandeur est autorisé.
+     *
+     * <p>Autorisé si le demandeur est l'auteur, ou s'il dispose d'un rôle avec
+     * {@code canManageMessages=true} dans la guilde du canal.</p>
+     *
+     * @param messageId identifiant du message
+     * @param requesterId identifiant du demandeur
+     * @throws IllegalArgumentException si message ou demandeur introuvable
+     * @throws SecurityException si non autorisé
+     */
     @Transactional
     public void deleteMessage(Long messageId, Long requesterId) {
-        Message message = Message.findById(messageId);
-        User requester = User.findById(requesterId);
+        Message message = messageRepository.findById(messageId);
+        User requester = userRepository.findById(requesterId);
 
         if (message == null || requester == null) {
             throw new IllegalArgumentException("Message or requester not found");
@@ -194,9 +334,15 @@ public class DiscordBotService {
         }
 
         message.isDeleted = true;
-        message.persist();
+        messageRepository.persist(message);
     }
 
+    /**
+     * Vérifie si un utilisateur peut gérer les messages dans un canal.
+     *
+     * <p>Le propriétaire de guilde est toujours autorisé. Sinon, l'utilisateur doit posséder un rôle
+     * dans la guilde avec {@code canManageMessages=true}.</p>
+     */
     private boolean canUserManageMessages(User user, Channel channel) {
         Guild guild = channel.guild;
         
@@ -206,7 +352,10 @@ public class DiscordBotService {
         }
 
         // Vérifier les permissions des rôles
+        if (user.roles == null || user.roles.isEmpty()) {
+            return false;
+        }
         return user.roles.stream()
-                .anyMatch(role -> role.guild.equals(guild) && role.canManageMessages);
+            .anyMatch(role -> role != null && role.guild != null && role.guild.equals(guild) && role.canManageMessages);
     }
 }

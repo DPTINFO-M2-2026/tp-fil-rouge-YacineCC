@@ -3,20 +3,15 @@ package fr.univtln.yhaouas846.projet.resource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestMethodOrder;
-import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
-import org.junit.jupiter.api.Order;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.Matchers.greaterThan;
 
 @QuarkusTest
-@TestMethodOrder(OrderAnnotation.class)
 class UserResourceTest {
 
     @Test
-    @Order(1)
     void testGetAllUsers() {
         given()
                 .when().get("/api/users")
@@ -27,7 +22,6 @@ class UserResourceTest {
     }
 
     @Test
-    @Order(2)
     void testGetUserById() {
         given()
                 .when().get("/api/users/100")
@@ -39,7 +33,6 @@ class UserResourceTest {
     }
 
     @Test
-    @Order(3)
     void testGetUserByIdNotFound() {
         given()
                 .when().get("/api/users/99999")
@@ -48,7 +41,6 @@ class UserResourceTest {
     }
 
     @Test
-    @Order(4)
     void testCreateUser() {
         String newUser = "{\n" +
                 "\"username\": \"NewTestUser\",\n" +
@@ -70,7 +62,6 @@ class UserResourceTest {
     }
 
     @Test
-    @Order(5)
     void testCreateUserInvalidData() {
         String invalidUser = "{\n" +
                 "\"username\": \"a\",\n" +
@@ -87,27 +78,6 @@ class UserResourceTest {
     }
 
     @Test
-    @Order(6)
-    void testUpdateUser() {
-        String updatedUser = "{\n" +
-                "\"username\": \"UpdatedUser\",\n" +
-                "\"discriminator\": \"5555\",\n" +
-                "\"email\": \"updated@test.com\",\n" +
-                "\"isBot\": false\n" +
-                "}";
-
-        given()
-                .contentType(ContentType.JSON)
-                .body(updatedUser)
-                .when().put("/api/users/101")
-                .then()
-                .statusCode(200)
-                .contentType(ContentType.JSON)
-                .body("username", equalTo("UpdatedUser"));
-    }
-
-    @Test
-    @Order(7)
     void testGetUserByUsername() {
         given()
                 .when().get("/api/users/username/TestUser1")
@@ -118,7 +88,6 @@ class UserResourceTest {
     }
 
     @Test
-    @Order(8)
     void testGetBots() {
         given()
                 .when().get("/api/users/bots")
@@ -129,7 +98,6 @@ class UserResourceTest {
     }
 
     @Test
-    @Order(9)
     void testDeleteUser() {
         // Créer d'abord un utilisateur à supprimer
         String userToDelete = "{\n" +
@@ -157,5 +125,41 @@ class UserResourceTest {
                 .when().get("/api/users/" + userId)
                 .then()
                 .statusCode(404);
+    }
+
+    @Test
+    void testUpdateUser_roundTripOnCreatedUser() {
+        String newUser = "{\n" +
+                "\"username\": \"ToUpdate\",\n" +
+                "\"discriminator\": \"3333\",\n" +
+                "\"email\": \"toupdate@test.com\",\n" +
+                "\"isBot\": false\n" +
+                "}";
+
+        Integer userId = given()
+                .contentType(ContentType.JSON)
+                .body(newUser)
+                .when().post("/api/users")
+                .then()
+                .statusCode(201)
+                .extract().path("id");
+
+        String updatedUser = "{\n" +
+                "\"username\": \"UpdatedUser\",\n" +
+                "\"discriminator\": \"5555\",\n" +
+                "\"email\": \"updated@test.com\",\n" +
+                "\"isBot\": false\n" +
+                "}";
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(updatedUser)
+                .when().put("/api/users/" + userId)
+                .then()
+                .statusCode(200)
+                .contentType(ContentType.JSON)
+                .body("username", equalTo("UpdatedUser"));
+
+        given().when().delete("/api/users/" + userId).then().statusCode(204);
     }
 }

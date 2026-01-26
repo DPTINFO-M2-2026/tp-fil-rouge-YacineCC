@@ -1,22 +1,19 @@
 package fr.univtln.yhaouas846.projet.entity;
 
-import io.quarkus.test.junit.QuarkusTest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
+import jakarta.validation.Validation;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import jakarta.inject.Inject;
 
 import java.time.LocalDateTime;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@QuarkusTest
 class MessageTest {
 
-    @Inject
-    Validator validator;
+    private Validator validator;
 
     private Message message;
     private User author;
@@ -25,6 +22,7 @@ class MessageTest {
 
     @BeforeEach
     void setUp() {
+        validator = Validation.buildDefaultValidatorFactory().getValidator();
         User owner = new User();
         owner.username = "Owner";
         owner.discriminator = "0001";
@@ -119,7 +117,7 @@ class MessageTest {
 
     @Test
     void testInvalidEmbedTitle() {
-        message.embedTitle = "a".repeat(2005); // Trop long
+        message.embedTitle = "a".repeat(300); // Trop long (max 256)
         Set<ConstraintViolation<Message>> violations = validator.validate(message);
         assertFalse(violations.isEmpty());
     }

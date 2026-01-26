@@ -1,22 +1,19 @@
 package fr.univtln.yhaouas846.projet.entity;
 
-import io.quarkus.test.junit.QuarkusTest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
+import jakarta.validation.Validation;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import jakarta.inject.Inject;
 
 import java.time.LocalDateTime;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@QuarkusTest
 class RoleTest {
 
-    @Inject
-    Validator validator;
+    private Validator validator;
 
     private Role role;
     private Guild guild;
@@ -24,6 +21,7 @@ class RoleTest {
 
     @BeforeEach
     void setUp() {
+        validator = Validation.buildDefaultValidatorFactory().getValidator();
         owner = new User();
         owner.username = "Owner";
         owner.discriminator = "0001";

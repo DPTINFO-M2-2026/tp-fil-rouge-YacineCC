@@ -3,20 +3,15 @@ package fr.univtln.yhaouas846.projet.resource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestMethodOrder;
-import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
-import org.junit.jupiter.api.Order;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.Matchers.greaterThan;
 
 @QuarkusTest
-@TestMethodOrder(OrderAnnotation.class)
 class BotResourceTest {
 
     @Test
-    @Order(1)
     void testHealthCheck() {
         given()
                 .when().get("/api/bot/health")
@@ -29,7 +24,6 @@ class BotResourceTest {
     }
 
     @Test
-    @Order(2)
     void testCreateGuildWithDefaults() {
         given()
                 .queryParam("name", "Bot Test Guild")
@@ -43,7 +37,6 @@ class BotResourceTest {
     }
 
     @Test
-    @Order(3)
     void testCreateGuildWithInvalidOwner() {
         given()
                 .queryParam("name", "Invalid Guild")
@@ -56,21 +49,20 @@ class BotResourceTest {
     }
 
     @Test
-    @Order(4)
-    void testSendMessage() {
-        // D'abord, créer un utilisateur avec les bonnes permissions
-        // Pour ce test, on utilise l'utilisateur de test existant (ID 100)
+    void testSendMessageAllowedBySeededPermissions() {
         given()
                 .queryParam("authorId", 100)
                 .queryParam("channelId", 300)
                 .queryParam("content", "Test message from bot API")
                 .when().post("/api/bot/messages")
                 .then()
-                .statusCode(anyOf(is(201), is(403))); // Peut échouer selon les permissions
+                .statusCode(201)
+                .contentType(ContentType.JSON)
+                .body("author.id", equalTo(100))
+                .body("channel.id", equalTo(300));
     }
 
     @Test
-    @Order(5)
     void testSendMessageInvalidAuthor() {
         given()
                 .queryParam("authorId", 99999)
@@ -84,7 +76,20 @@ class BotResourceTest {
     }
 
     @Test
-    @Order(6)
+    void testSendMessageForbiddenWhenNotMember() {
+        // User 103 n'est pas membre de la guilde du channel 300
+        given()
+                .queryParam("authorId", 103)
+                .queryParam("channelId", 300)
+                .queryParam("content", "should be forbidden")
+                .when().post("/api/bot/messages")
+                .then()
+                .statusCode(403)
+                .contentType(ContentType.JSON)
+                .body("error", containsString("permission"));
+    }
+
+    @Test
     void testGetChannelMessages() {
         given()
                 .queryParam("limit", 5)
@@ -92,11 +97,10 @@ class BotResourceTest {
                 .then()
                 .statusCode(200)
                 .contentType(ContentType.JSON)
-                .body("size()", greaterThan(-1)); // Peut être 0 si pas de messages
+                .body("size()", greaterThan(0));
     }
 
     @Test
-    @Order(7)
     void testGetChannelMessagesInvalidChannel() {
         given()
                 .when().get("/api/bot/messages/channel/99999")
@@ -107,18 +111,6 @@ class BotResourceTest {
     }
 
     @Test
-    @Order(8)
-    void testAddUserToGuild() {
-        given()
-                .when().post("/api/bot/guilds/200/members/101")
-                .then()
-                .statusCode(200)
-                .contentType(ContentType.JSON)
-                .body("message", containsString("successfully"));
-    }
-
-    @Test
-    @Order(9)
     void testAddUserToGuildInvalidIds() {
         given()
                 .when().post("/api/bot/guilds/99999/members/100")
@@ -129,18 +121,16 @@ class BotResourceTest {
     }
 
     @Test
-    @Order(10)
     void testGetUserGuilds() {
         given()
                 .when().get("/api/bot/users/100/guilds")
                 .then()
                 .statusCode(200)
                 .contentType(ContentType.JSON)
-                .body("size()", greaterThan(-1));
+                .body("size()", greaterThan(0));
     }
 
     @Test
-    @Order(11)
     void testGetUserGuildsInvalidUser() {
         given()
                 .when().get("/api/bot/users/99999/guilds")
@@ -151,7 +141,6 @@ class BotResourceTest {
     }
 
     @Test
-    @Order(12)
     void testCheckUserPermissions() {
         given()
                 .when().get("/api/bot/users/100/permissions")
@@ -163,19 +152,17 @@ class BotResourceTest {
     }
 
     @Test
-    @Order(13)
     void testDeleteMessage() {
-        // Créer d'abord un message si nécessaire
-        // Pour ce test, on utilise un message existant ou on teste avec un ID invalide
         given()
                 .queryParam("requesterId", 100)
                 .when().delete("/api/bot/messages/500")
                 .then()
-                .statusCode(anyOf(is(200), is(403), is(400))); // Dépend des permissions et de l'existence
+                .statusCode(200)
+                .contentType(ContentType.JSON)
+                .body("message", containsString("successfully"));
     }
 
     @Test
-    @Order(14)
     void testDeleteMessageInvalidId() {
         given()
                 .queryParam("requesterId", 100)

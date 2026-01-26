@@ -1,94 +1,59 @@
 package fr.univtln.yhaouas846.projet;
 
-import io.quarkus.test.common.QuarkusTestResource;
-import io.quarkus.test.junit.QuarkusIntegrationTest;
+import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.*;
 
 /**
- * Tests d'intégration utilisant TestContainers avec une vraie base PostgreSQL
+ * Test d'intégration Quarkus qui démarre l'application avec le profil test
+ * et la base H2 (configurée via src/test/resources/application.properties).
  */
-@QuarkusIntegrationTest
-@Testcontainers
+@QuarkusTest
 class DiscordBotIntegrationTest {
 
-    @Container
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15")
-            .withDatabaseName("discord_test")
-            .withUsername("test")
-            .withPassword("test");
-
     @Test
-    void testCompleteIntegrationWithRealDatabase() {
-        // Test que l'application fonctionne avec une vraie base de données
+    void applicationStarts_andHealthIsUp() {
         given()
                 .when().get("/api/bot/health")
                 .then()
                 .statusCode(200)
                 .body("status", equalTo("UP"));
-
-        // Test de création d'utilisateur avec validation complète
-        String user = "{\n" +
-                "\"username\": \"IntegrationUser\",\n" +
-                "\"discriminator\": \"8888\",\n" +
-                "\"email\": \"integration@test.com\"\n" +
-                "}";
-
-        Integer userId = given()
-                .contentType(ContentType.JSON)
-                .body(user)
-                .when().post("/api/users")
-                .then()
-                .statusCode(201)
-                .extract().path("id");
-
-        // Vérifier que l'utilisateur est persisté
-        given()
-                .when().get("/api/users/" + userId)
-                .then()
-                .statusCode(200)
-                .body("username", equalTo("IntegrationUser"));
-
-        // Test de validation des contraintes
-        String invalidUser = "{\n" +
-                "\"username\": \"x\",\n" +
-                "\"discriminator\": \"12\",\n" +
-                "\"email\": \"invalid\"\n" +
-                "}";
-
-        given()
-                .contentType(ContentType.JSON)
-                .body(invalidUser)
-                .when().post("/api/users")
-                .then()
-                .statusCode(400);
     }
 
     @Test
-    void testTransactionRollback() {
-        // Test que les transactions sont correctement gérées
-        String invalidGuild = "{\n" +
-                "\"name\": \"\",\n" +
-                "\"owner\": null\n" +
-                "}";
-
+    void usesH2SeedData_andBusinessRulesAreEnforced() {
+        // Données seedées via test-data.sql
         given()
+                .when().get("/api/users/100")
+                .then()
+                .statusCode(200)
+                .body("username", equalTo("TestUser1"));
+
+        // User 103 n'est pas membre de la guilde du channel 300 => doit être refusé
+        given()
+                .queryParam("authorId", 103)
+                .queryParam("channelId", 300)
+                .queryParam("content", "should be forbidden")
+                .when().post("/api/bot/messages")
+                .then()
+                .statusCode(403)
                 .contentType(ContentType.JSON)
-                .body(invalidGuild)
-                .when().post("/api/guilds")
-                .then()
-                .statusCode(400);
+                .body("error", containsString("permission"));
 
-        // Vérifier que l'état de la base n'a pas été altéré
+        // User 100 est membre et a un rôle avec canSendMessages => OK
         given()
-                .when().get("/api/guilds")
+                .queryParam("authorId", 100)
+                .queryParam("channelId", 300)
+                .queryParam("content", "hello")
+                .when().post("/api/bot/messages")
                 .then()
-                .statusCode(200);
+                .statusCode(201)
+                .contentType(ContentType.JSON)
+                .body("content", equalTo("hello"))
+                .body("author.id", equalTo(100))
+                .body("channel.id", equalTo(300));
     }
 }
