@@ -34,6 +34,33 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 
+/**
+ * Bot Discord4J réactif (Reactor) combinant :
+ * <ul>
+ *   <li>des commandes "fun" (Thrasher covers, Hellbomb vidéos) basées sur des fichiers locaux,</li>
+ *   <li>des commandes LLM via {@link fr.univtln.yhaouas846.discord4j.services.LangChain4jClient},</li>
+ *   <li>une commande admin de scan qui synchronise un serveur Discord vers l'API REST Quarkus.</li>
+ * </ul>
+ *
+ * <h2>Pré-requis</h2>
+ * <ul>
+ *   <li>Variable d'environnement {@code DISCORD_TOKEN} configurée.</li>
+ *   <li>API Quarkus disponible à {@link #API_URL} (par défaut {@code http://localhost:8080/api}).</li>
+ *   <li>Ressources locales présentes dans {@link #COVERS_DIRECTORY} et {@link #HELLBOMB_DIRECTORY}.</li>
+ * </ul>
+ *
+ * <h2>Commandes</h2>
+ * <ul>
+ *   <li>{@code !thrasher} : poste une cover aléatoire</li>
+ *   <li>{@code !thrasher hellbomb} : poste une vidéo aléatoire</li>
+ *   <li>{@code !thrasher help} : affiche l'aide</li>
+ *   <li>{@code !admin scan} : scanne le serveur courant et pousse users/guild/channels/messages vers l'API</li>
+ *   <li>{@code /ask ...} / {@code /translate ...} : délégation LLM</li>
+ * </ul>
+ *
+ * <p>Le scan maintient des caches {@code Snowflake -> Long} afin de faire le mapping entre
+ * les identifiants Discord et les identifiants DB (renvoyés par l'API).</p>
+ */
 public class ThrasherBotReactive {
 
     private static final String COVERS_DIRECTORY = "discord-bot-resources/thrasher-covers";
@@ -49,6 +76,10 @@ public class ThrasherBotReactive {
     private static final Map<Snowflake, Long> guildMap = new HashMap<>();
     private static final Map<Snowflake, Long> channelMap = new HashMap<>();
 
+    /**
+     * Point d'entrée du bot : connexion à Discord, enregistrement des handlers et blocage
+     * jusqu'à la déconnexion.
+     */
     public static void main(String[] args) {
         String token = System.getenv("DISCORD_TOKEN"); // Ton token Discord
         DiscordClient client = DiscordClient.create(token);
@@ -124,6 +155,9 @@ public class ThrasherBotReactive {
     }
 
     // ------------------- THRASHER COMMANDES -------------------
+    /**
+     * Commande {@code !thrasher} : envoie une cover au hasard depuis le répertoire configuré.
+     */
     private static Mono<Void> handleThrasherCommand(Message message, File coversDir) {
         File[] images = getImageFiles(coversDir);
         if (images.length == 0) {
@@ -150,6 +184,9 @@ public class ThrasherBotReactive {
         }
     }
 
+    /**
+     * Commande {@code !thrasher hellbomb} : envoie une vidéo au hasard depuis le répertoire configuré.
+     */
     private static Mono<Void> handleHellbombCommand(Message message, File hellbombDir) {
         File[] videos = getVideoFiles(hellbombDir);
         if (videos.length == 0) {
@@ -176,6 +213,9 @@ public class ThrasherBotReactive {
         }
     }
 
+    /**
+     * Commande {@code !thrasher help} : affiche une aide synthétique.
+     */
     private static Mono<Void> handleHelpCommand(Message message) {
         String help = """
                 🛹 **THRASHER BOT - Aide** 🛹
@@ -207,6 +247,18 @@ public class ThrasherBotReactive {
 
     // ------------------- SCAN LOGIC -------------------
 
+    /**
+     * Scanne un serveur Discord :
+     * <ol>
+     *   <li>sauvegarde les membres (users),</li>
+     *   <li>sauvegarde la guilde (liée au owner),</li>
+     *   <li>sauvegarde les channels,</li>
+     *   <li>pour les text channels, récupère une page de messages et les envoie à l'API.</li>
+     * </ol>
+     *
+     * <p>La méthode est tolérante aux erreurs sur certains éléments : elle continue en cas
+     * d'échec d'un user/channel/message individuel.</p>
+     */
     private static Mono<Void> scanGuild(Guild guild, Mono<discord4j.core.object.entity.channel.MessageChannel> responseChannel) {
         return responseChannel.flatMap(ch -> ch.createMessage("🔄 Début du scan du serveur **" + guild.getName() + "**..."))
                 .then(
@@ -264,6 +316,11 @@ public class ThrasherBotReactive {
                 });
     }
 
+    /**
+     * Envoie un utilisateur Discord vers l'API et retourne son identifiant DB.
+     *
+     * <p>Utilise un cache {@link #userMap} pour éviter des créations en double lors du scan.</p>
+     */
     private static Mono<Long> saveUser(User discordUser) {
         if (userMap.containsKey(discordUser.getId())) {
             return Mono.just(userMap.get(discordUser.getId()));
@@ -294,6 +351,11 @@ public class ThrasherBotReactive {
                 .doOnError(e -> System.err.println("❌ Echec sauvegarde User " + discordUser.getUsername() + ": " + e.getMessage()));
     }
 
+    /**
+     * Envoie une guilde Discord vers l'API et retourne son identifiant DB.
+     *
+     * <p>La guilde dépend de l'owner : l'owner est donc sauvegardé/obtenu avant l'envoi.</p>
+     */
     private static Mono<Long> saveGuild(Guild discordGuild, User owner) {
         if (guildMap.containsKey(discordGuild.getId())) {
             return Mono.just(guildMap.get(discordGuild.getId()));
@@ -325,6 +387,12 @@ public class ThrasherBotReactive {
         });
     }
 
+    /**
+     * Envoie un channel vers l'API et retourne son identifiant DB.
+     *
+     * <p>Le payload est envoyé sous forme de {@link java.util.Map} afin de construire une
+     * référence de guilde par ID DB et de mapper le type Discord4J vers l'enum interne.</p>
+     */
     private static Mono<Long> saveChannel(Channel discordChannel, Long guildId) {
         if (channelMap.containsKey(discordChannel.getId())) {
             return Mono.just(channelMap.get(discordChannel.getId()));
@@ -363,6 +431,11 @@ public class ThrasherBotReactive {
                 });
     }
 
+    /**
+     * Envoie un message vers l'API (si non vide et avec auteur présent).
+     *
+     * <p>Le message crée des références vers l'auteur et le canal via leurs IDs DB.</p>
+     */
     private static Mono<Void> saveMessage(Message discordMessage, Long channelId) {
         // On ignore les messages sans contenu
         if (discordMessage.getContent().isEmpty()) {
@@ -401,6 +474,16 @@ public class ThrasherBotReactive {
         });
     }
 
+    /**
+     * Effectue un POST JSON vers l'API Quarkus.
+     *
+     * <p>Le call HTTP est exécuté sur {@link reactor.core.scheduler.Schedulers#boundedElastic()}
+     * pour éviter de bloquer les threads réactifs.</p>
+     *
+     * @param path chemin relatif sous {@link #API_URL} (ex: {@code /users})
+     * @param entity objet sérialisable JSON (Map ou POJO)
+     * @return réponse JSON (body) convertie en {@link com.fasterxml.jackson.databind.JsonNode}
+     */
     private static Mono<JsonNode> sendToApi(String path, Object entity) {
         return Mono.fromCallable(() -> {
             String json = objectMapper.writeValueAsString(entity);
@@ -419,6 +502,10 @@ public class ThrasherBotReactive {
         }).subscribeOn(Schedulers.boundedElastic());
     }
 
+    /**
+     * Convertit un {@link java.time.Instant} en {@link java.time.LocalDateTime} dans le fuseau
+     * par défaut de la JVM.
+     */
     private static LocalDateTime toLocalDateTime(java.time.Instant instant) {
         return LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
     }

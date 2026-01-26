@@ -10,9 +10,28 @@ import jakarta.ws.rs.core.Response;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Façade REST orientée "bot" : expose des opérations de plus haut niveau qui orchestrent
+ * plusieurs entités (guilde, canaux, rôles, messages).
+ *
+ * <p>Cette ressource délègue la logique métier à {@link fr.univtln.yhaouas846.discord4j.services.DiscordBotService}.
+ * Elle gère les erreurs fonctionnelles via des codes HTTP explicites :
+ * {@code 400} pour erreurs de validation/arguments, {@code 403} pour violations de permission.</p>
+ *
+ * <h2>Endpoints</h2>
+ * <ul>
+ *   <li>{@code POST /api/bot/guilds?name=...&owner=...} : crée une guilde avec canaux/rôles par défaut</li>
+ *   <li>{@code POST /api/bot/messages?authorId=...&channelId=...&content=...} : envoie un message (contrôle de permission)</li>
+ *   <li>{@code GET /api/bot/messages/channel/{channelId}?limit=...} : récupère les messages d'un canal</li>
+ *   <li>{@code POST /api/bot/guilds/{guildId}/members/{userId}} : ajoute un membre à une guilde</li>
+ *   <li>{@code GET /api/bot/users/{userId}/guilds} : liste les guildes d'un utilisateur (owner ou membre)</li>
+ *   <li>{@code DELETE /api/bot/messages/{messageId}?requesterId=...} : suppression logique avec contrôle d'accès</li>
+ *   <li>{@code GET /api/bot/users/{userId}/permissions} : exemple de check permission (bot owner)</li>
+ *   <li>{@code GET /api/bot/health} : endpoint simple de santé</li>
+ * </ul>
+ */
 @Path("/api/bot")
 @Produces(MediaType.APPLICATION_JSON)
-@Consumes(MediaType.APPLICATION_JSON)
 public class BotResource {
 
     @Inject

@@ -8,6 +8,20 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.time.LocalDateTime;
 import java.util.Set;
 
+/**
+ * Entité représentant un rôle Discord dans une guilde.
+ *
+ * <p>Le rôle contient des drapeaux de permissions applicatives (gestion de canaux, rôles,
+ * messages, etc.) utilisés par la logique métier pour autoriser certaines actions.</p>
+ *
+ * <h2>Relations</h2>
+ * <ul>
+ *   <li>{@link #guild} : guilde propriétaire du rôle (obligatoire)</li>
+ *   <li>{@link #users} : utilisateurs auxquels ce rôle est attribué (many-to-many via {@code user_roles})</li>
+ * </ul>
+ *
+ * <p>Le champ {@code color} attend un code hexadécimal sous la forme {@code #RRGGBB}.</p>
+ */
 @Entity
 @Table(name = "role")
 public class Role extends PanacheEntity {
@@ -64,7 +78,10 @@ public class Role extends PanacheEntity {
     )
     @JsonIgnore
     public Set<User> users;
-    
+
+    /**
+     * Initialise {@link #createdAt} lors de la première persistance.
+     */
     @PrePersist
     void prePersist() {
         if (createdAt == null) {

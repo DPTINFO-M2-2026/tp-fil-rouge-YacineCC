@@ -11,6 +11,24 @@ import java.io.InputStream;
 import java.time.Duration;
 import java.util.Properties;
 
+/**
+ * Client minimal pour interagir avec un modèle de chat via LangChain4j + Ollama.
+ *
+ * <p>Ce composant construit un {@link dev.langchain4j.model.chat.ChatModel} basé sur
+ * {@link dev.langchain4j.model.ollama.OllamaChatModel}.</p>
+ *
+ * <h2>Configuration</h2>
+ * <p>La configuration est lue depuis un fichier {@code langchain4j.properties} si présent,
+ * sinon des valeurs par défaut sont utilisées :</p>
+ * <ul>
+ *   <li>{@code LANGCHAIN4J_HOST_IP} (défaut: {@value #DEFAULT_HOST_IP})</li>
+ *   <li>{@code LANGCHAIN4J_OLLAMA_PORT} (défaut: {@value #DEFAULT_OLLAMA_PORT})</li>
+ *   <li>{@code LANGCHAIN4J_MODEL_NAME} (défaut: {@value #DEFAULT_MODEL_NAME})</li>
+ * </ul>
+ *
+ * <p>Ce client est volontairement simple : en cas d'erreur, il renvoie une chaîne d'erreur
+ * plutôt que de propager l'exception.</p>
+ */
 public class LangChain4jClient {
     private static final String DEFAULT_HOST_IP = "192.168.56.1";
     private static final int DEFAULT_OLLAMA_PORT = 11434;
@@ -47,6 +65,13 @@ public class LangChain4jClient {
         System.out.println("LangChain4J connecté à: http://" + hostIp + ":" + port + " (modèle: " + modelName + ")");
     }
 
+    /**
+     * Charge des propriétés depuis {@code langchain4j.properties} si disponible.
+     *
+     * <p>Deux emplacements sont tentés :
+     * le classpath via {@code ClassLoader#getResourceAsStream} puis une résolution via
+     * {@code /langchain4j.properties}.</p>
+     */
     private Properties loadProperties() {
         Properties props = new Properties();
         try (InputStream input = getClass().getClassLoader().getResourceAsStream("langchain4j.properties")) {
@@ -69,6 +94,12 @@ public class LangChain4jClient {
         return props;
     }
 
+    /**
+     * Envoie une question au modèle et renvoie la réponse textuelle.
+     *
+     * @param question question utilisateur
+     * @return réponse du modèle, ou message d'erreur en cas d'exception
+     */
     public String ask(String question) {
         try {
             return this.chatModel.chat(UserMessage.from(question)).aiMessage().text();
@@ -78,8 +109,11 @@ public class LangChain4jClient {
         }
     }
 
-        /**
-     * Traduction d'un message en français en utilisant un message système
+    /**
+     * Traduit un message arbitraire en français en utilisant un message système.
+     *
+     * @param userMessage texte à traduire
+     * @return traduction, ou message d'erreur en cas d'exception
      */
     public String translate(String userMessage) {
         try {

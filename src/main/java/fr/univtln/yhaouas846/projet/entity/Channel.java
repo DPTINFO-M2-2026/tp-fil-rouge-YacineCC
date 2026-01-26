@@ -7,6 +7,20 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.time.LocalDateTime;
 import java.util.Set;
 
+/**
+ * Entité représentant un canal (channel) au sein d'une guilde.
+ *
+ * <p>Un canal appartient obligatoirement à une {@link fr.univtln.yhaouas846.projet.entity.Guild}.
+ * Les messages sont liés via {@link #messages}.</p>
+ *
+ * <h2>Champs importants</h2>
+ * <ul>
+ *   <li>{@code type} : type du canal (texte, vocal, etc.)</li>
+ *   <li>{@code position} : ordre d'affichage (>= 0)</li>
+ *   <li>{@code isNsfw} : indicateur de contenu sensible</li>
+ *   <li>{@code discordId} : identifiant Discord (unique si présent)</li>
+ * </ul>
+ */
 @Entity
 @Table(name = "channel")
 public class Channel extends PanacheEntity {
@@ -46,7 +60,10 @@ public class Channel extends PanacheEntity {
     @OneToMany(mappedBy = "channel", cascade = CascadeType.ALL)
     @JsonIgnore
     public Set<Message> messages;
-    
+
+    /**
+     * Initialise {@link #createdAt} lors de la première persistance.
+     */
     @PrePersist
     void prePersist() {
         if (createdAt == null) {

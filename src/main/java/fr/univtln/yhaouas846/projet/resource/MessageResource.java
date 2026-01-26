@@ -10,6 +10,16 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.List;
 
+/**
+ * Ressource REST de gestion des messages.
+ *
+ * <p>Cette API propose un CRUD et plusieurs endpoints de consultation :
+ * filtrage par canal, par auteur, et recherche textuelle sur le contenu.</p>
+ *
+ * <p>Le modèle utilise une suppression logique : le {@code DELETE} ne supprime pas
+ * physiquement la ligne mais positionne {@code isDeleted=true}. Les requêtes de
+ * consultation filtrent généralement sur {@code isDeleted=false}.</p>
+ */
 @Path("/api/messages")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
@@ -30,6 +40,15 @@ public class MessageResource {
         return Response.ok(message).build();
     }
 
+    /**
+     * Crée un message.
+     *
+     * <p>Si {@code discordId} est présent et déjà connu, le message existant est mis à jour
+     * (utile pour un mode sync). Sinon, une nouvelle entité est persistée.</p>
+     *
+     * @param message message à créer/mettre à jour
+     * @return {@code 201} si création, {@code 200} si mise à jour, {@code 400} en cas d'erreur
+     */
     @POST
     @Transactional
     public Response createMessage(@Valid Message message) {
@@ -81,6 +100,14 @@ public class MessageResource {
         }
     }
 
+    /**
+     * Supprime logiquement un message.
+     *
+     * <p>Le message est marqué supprimé via {@code isDeleted=true} et reste présent en base.</p>
+     *
+     * @param id identifiant du message
+     * @return {@code 204} si succès, {@code 404} si introuvable
+     */
     @DELETE
     @Path("/{id}")
     @Transactional
@@ -128,6 +155,15 @@ public class MessageResource {
 
     @GET
     @Path("/search")
+    /**
+     * Recherche des messages par sous-chaîne sur le champ {@code content}.
+     *
+     * <p>Si le terme de recherche est vide, la réponse est une liste vide.</p>
+     *
+     * @param content terme à rechercher
+     * @param limit limite de résultats (par défaut 20)
+     * @return liste de messages non supprimés correspondant au filtre
+     */
     public List<Message> searchMessages(@QueryParam("content") String content,
                                       @QueryParam("limit") @DefaultValue("20") int limit) {
         if (content == null || content.trim().isEmpty()) {

@@ -8,6 +8,15 @@ import dev.langchain4j.model.chat.ChatModel;
 
 import java.time.Duration;
 
+/**
+ * Client minimal pour interagir directement avec un serveur Ollama via LangChain4j.
+ *
+ * <p>Ce client encapsule un {@link dev.langchain4j.model.chat.ChatModel} et expose deux
+ * opérations utilitaires : {@link #ask(String)} et {@link #translate(String)}.</p>
+ *
+ * <p>Comme {@link LangChain4jClient}, cette implémentation est volontairement pragmatique :
+ * en cas d'erreur, elle renvoie un message plutôt que de propager l'exception.</p>
+ */
 public class OllamaClient {
     private final ChatModel chatModel;
 
@@ -20,6 +29,12 @@ public class OllamaClient {
         System.out.println("Ollama connecté à http://" + host + ":" + port + " (modèle: " + modelName + ")");
     }
 
+    /**
+     * Envoie une question au modèle et renvoie la réponse textuelle.
+     *
+     * @param question question utilisateur
+     * @return réponse du modèle, ou message d'erreur en cas d'exception
+     */
     public String ask(String question) {
         try {
             return this.chatModel.chat(UserMessage.from(question)).aiMessage().text();
@@ -29,8 +44,11 @@ public class OllamaClient {
         }
     }
 
-        /**
-     * Traduction d'un message en français en utilisant un message système
+    /**
+     * Traduit un texte en français en utilisant un prompt système.
+     *
+     * @param userMessage texte à traduire
+     * @return traduction, ou message d'erreur en cas d'exception
      */
     public String translate(String userMessage) {
         try {

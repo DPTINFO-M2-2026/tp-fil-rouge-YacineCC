@@ -10,6 +10,25 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.List;
 
+/**
+ * Ressource REST de gestion des rôles (permissions) au sein d'une guilde.
+ *
+ * <p>Les rôles sont modélisés par l'entité {@link fr.univtln.yhaouas846.projet.entity.Role}.
+ * En plus des opérations CRUD, cette ressource expose des endpoints pour affecter/retirer
+ * un rôle à un utilisateur (via l'association {@code user_roles}).</p>
+ *
+ * <h2>Endpoints</h2>
+ * <ul>
+ *   <li>{@code GET /api/roles}</li>
+ *   <li>{@code GET /api/roles/{id}}</li>
+ *   <li>{@code POST /api/roles}</li>
+ *   <li>{@code PUT /api/roles/{id}}</li>
+ *   <li>{@code DELETE /api/roles/{id}}</li>
+ *   <li>{@code GET /api/roles/guild/{guildId}} : rôles d'une guilde</li>
+ *   <li>{@code POST /api/roles/{roleId}/users/{userId}} : assigne un rôle</li>
+ *   <li>{@code DELETE /api/roles/{roleId}/users/{userId}} : retire un rôle</li>
+ * </ul>
+ */
 @Path("/api/roles")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
@@ -88,6 +107,12 @@ public class RoleResource {
 
     @GET
     @Path("/guild/{guildId}")
+    /**
+     * Liste les rôles d'une guilde.
+     *
+     * @param guildId identifiant de la guilde
+     * @return {@code 200} avec la liste ou {@code 404} si la guilde est inconnue
+     */
     public Response getRolesByGuild(@PathParam("guildId") Long guildId) {
         Guild guild = Guild.findById(guildId);
         if (guild == null) {
@@ -98,6 +123,17 @@ public class RoleResource {
         return Response.ok(roles).build();
     }
 
+    /**
+     * Assigne un rôle à un utilisateur.
+     *
+     * <p>Cette opération ajoute l'utilisateur à l'ensemble {@link fr.univtln.yhaouas846.projet.entity.Role#users}
+     * puis persiste le rôle. La cohérence JPA dépend de la configuration de la relation et du contexte
+     * transactionnel.</p>
+     *
+     * @param roleId identifiant du rôle
+     * @param userId identifiant de l'utilisateur
+     * @return {@code 200} si succès, {@code 404} si rôle ou utilisateur absent
+     */
     @POST
     @Path("/{roleId}/users/{userId}")
     @Transactional
@@ -115,6 +151,13 @@ public class RoleResource {
         return Response.ok().build();
     }
 
+    /**
+     * Retire un rôle à un utilisateur.
+     *
+     * @param roleId identifiant du rôle
+     * @param userId identifiant de l'utilisateur
+     * @return {@code 200} si succès, {@code 404} si rôle ou utilisateur absent
+     */
     @DELETE
     @Path("/{roleId}/users/{userId}")
     @Transactional
