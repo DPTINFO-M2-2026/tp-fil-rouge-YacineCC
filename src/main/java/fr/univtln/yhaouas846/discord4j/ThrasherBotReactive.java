@@ -73,15 +73,16 @@ public class ThrasherBotReactive {
             .connectTimeout(Duration.ofSeconds(10))
             .build();
     private static final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
-    private static final String API_URL = "http://localhost:8080/api";
+    // Utilise la variable d'environnement API_HOST ou par défaut le nom du service Docker
+    private static final String API_URL = "http://" + System.getenv().getOrDefault("API_HOST", "discord-bot-app") + ":8080/api";
 
     // Cache pour mapper les IDs Discord (Snowflake) vers les IDs de la base de données (Long)
     private static final Map<Snowflake, Long> userMap = new HashMap<>();
     private static final Map<Snowflake, Long> guildMap = new HashMap<>();
     private static final Map<Snowflake, Long> channelMap = new HashMap<>();
     
-    // Configuration du scan automatique (300 sec = 5 min)
-    private static final int SCAN_INTERVAL_SECONDS = 300;
+    // Configuration du scan automatique (5 sec pour tests)
+    private static final int SCAN_INTERVAL_SECONDS = 5;
 
     /**
      * Point d'entrée du bot : connexion à Discord, enregistrement des handlers et blocage
@@ -462,12 +463,32 @@ public class ThrasherBotReactive {
                                                         .flatMap(channel -> 
                                                             saveChannel(channel, savedGuildId)
                                                                 .flatMap(savedChannelId -> {
-                                                                    // 4. Sauvegarder les Messages (si c'est un TextChannel)
+                                                                    // 4. Sauvegarder les Messages (si c'est un TextChannel) - 20 par auteur
                                                                     if (channel instanceof TextChannel) {
-                                                                        System.out.println("📨 Récupération des messages du channel: " + ((TextChannel) channel).getName());
-                                                                        return ((TextChannel) channel).getMessagesBefore(Snowflake.of(System.currentTimeMillis()))
-                                                                                .take(50) // Limite pour éviter de surcharger
-                                                                                .doOnNext(msg -> System.out.println("  -> Message trouvé: " + msg.getContent().substring(0, Math.min(20, msg.getContent().length()))))
+                                                                        TextChannel textChannel = (TextChannel) channel;
+                                                                        System.out.println("📨 Récupération des messages du channel: " + textChannel.getName());
+                                                                        return textChannel.getLastMessageId()
+                                                                                .map(lastMsgId -> textChannel.getMessagesBefore(lastMsgId))
+                                                                                .orElse(reactor.core.publisher.Flux.empty())
+                                                                                .take(500) // Récupère beaucoup de messages
+                                                                                .collectList()
+                                                                                .flatMapMany(messages -> {
+                                                                                    // Groupe par auteur et garde 20 par auteur
+                                                                                    java.util.Map<Snowflake, java.util.List<Message>> messagesByAuthor = messages.stream()
+                                                                                            .filter(msg -> msg.getAuthor().isPresent())
+                                                                                            .collect(java.util.stream.Collectors.groupingBy(
+                                                                                                    msg -> msg.getAuthor().get().getId()
+                                                                                            ));
+                                                                                    
+                                                                                    java.util.List<Message> top20PerAuthor = messagesByAuthor.values().stream()
+                                                                                            .flatMap(authorMessages -> authorMessages.stream()
+                                                                                                    .sorted((m1, m2) -> m2.getTimestamp().compareTo(m1.getTimestamp()))
+                                                                                                    .limit(20))
+                                                                                            .collect(java.util.stream.Collectors.toList());
+                                                                                    
+                                                                                    System.out.println("  -> " + top20PerAuthor.size() + " messages à sauvegarder (20 max par auteur)");
+                                                                                    return reactor.core.publisher.Flux.fromIterable(top20PerAuthor);
+                                                                                })
                                                                                 .concatMap(msg -> saveMessage(msg, savedChannelId).onErrorResume(e -> {
                                                                                     System.err.println("Erreur sauvegarde message: " + e.getMessage());
                                                                                     return Mono.empty();
@@ -529,16 +550,44 @@ public class ThrasherBotReactive {
                                         .flatMap(channel -> 
                                             saveChannel(channel, savedGuildId)
                                                 .flatMap(savedChannelId -> {
-                                                    // 5. Sauvegarder les Messages (si TextChannel)
+                                                    // 5. Sauvegarder les Messages (si TextChannel) - 20 par auteur
                                                     if (channel instanceof TextChannel) {
-                                                        return ((TextChannel) channel).getMessagesBefore(Snowflake.of(System.currentTimeMillis()))
-                                                                .take(20) // Limite à 20 messages par canal pour le scan auto
+                                                        TextChannel textChannel = (TextChannel) channel;
+                                                        System.out.println("📨 Scan messages du channel: " + textChannel.getName());
+                                                        // Utilise getLastMessageId() pour obtenir un point de départ valide
+                                                        return textChannel.getLastMessageId()
+                                                                .map(lastMsgId -> textChannel.getMessagesBefore(lastMsgId))
+                                                                .orElse(reactor.core.publisher.Flux.empty()) // Pas de messages si pas de dernier message
+                                                                .take(500) // Récupère beaucoup de messages pour avoir assez par auteur
+                                                                .collectList()
+                                                                .doOnNext(messages -> System.out.println("  📥 " + messages.size() + " messages récupérés"))
+                                                                .flatMapMany(messages -> {
+                                                                    // Groupe par auteur et garde 20 par auteur
+                                                                    java.util.Map<Snowflake, java.util.List<Message>> messagesByAuthor = messages.stream()
+                                                                            .filter(msg -> msg.getAuthor().isPresent())
+                                                                            .collect(java.util.stream.Collectors.groupingBy(
+                                                                                    msg -> msg.getAuthor().get().getId()
+                                                                            ));
+                                                                    
+                                                                    java.util.List<Message> top20PerAuthor = messagesByAuthor.values().stream()
+                                                                            .flatMap(authorMessages -> authorMessages.stream()
+                                                                                    .sorted((m1, m2) -> m2.getTimestamp().compareTo(m1.getTimestamp()))
+                                                                                    .limit(20))
+                                                                            .collect(java.util.stream.Collectors.toList());
+                                                                    
+                                                                    System.out.println("  💾 " + top20PerAuthor.size() + " messages à sauvegarder (20 max par auteur, " + messagesByAuthor.size() + " auteurs)");
+                                                                    return reactor.core.publisher.Flux.fromIterable(top20PerAuthor);
+                                                                })
                                                                 .concatMap(msg -> saveMessage(msg, savedChannelId).onErrorResume(e -> Mono.empty()))
-                                                                .then();
+                                                                .then()
+                                                                .doOnSuccess(v -> System.out.println("  ✅ Messages du channel sauvegardés"));
                                                     }
                                                     return Mono.empty();
                                                 })
-                                                .onErrorResume(e -> Mono.empty())
+                                                .onErrorResume(e -> {
+                                                    System.err.println("❌ Erreur channel " + channel.getId() + ": " + e.getMessage());
+                                                    return Mono.empty();
+                                                })
                                         )
                                         .then();
                             })
@@ -671,7 +720,9 @@ public class ThrasherBotReactive {
     private static Mono<Long> saveRole(discord4j.core.object.entity.Role discordRole, Long guildId) {
         Map<String, Object> payload = new HashMap<>();
         payload.put("name", discordRole.getName());
-        payload.put("color", discordRole.getColor().getRGB());
+        // Convertit la couleur RGB en format hexadécimal #RRGGBB
+        int rgb = discordRole.getColor().getRGB() & 0xFFFFFF; // Masque pour enlever le canal alpha
+        payload.put("color", String.format("#%06X", rgb));
         payload.put("position", discordRole.getRawPosition());
         payload.put("permissions", discordRole.getPermissions().getRawValue());
         payload.put("mentionable", discordRole.isMentionable());
