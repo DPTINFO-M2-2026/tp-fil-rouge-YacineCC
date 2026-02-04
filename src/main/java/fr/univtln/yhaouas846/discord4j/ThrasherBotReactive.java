@@ -79,6 +79,9 @@ public class ThrasherBotReactive {
     private static final Map<Snowflake, Long> userMap = new HashMap<>();
     private static final Map<Snowflake, Long> guildMap = new HashMap<>();
     private static final Map<Snowflake, Long> channelMap = new HashMap<>();
+    
+    // Configuration du scan automatique (300 sec = 5 min)
+    private static final int SCAN_INTERVAL_SECONDS = 300;
 
     /**
      * Point d'entrée du bot : connexion à Discord, enregistrement des handlers et blocage
@@ -192,6 +195,27 @@ public class ThrasherBotReactive {
             return Mono.empty();
         }).subscribe();
 
+        // ------------------- SCAN AUTOMATIQUE -------------------
+        System.out.println("🔄 Démarrage du scan automatique (interval: " + SCAN_INTERVAL_SECONDS + " secondes)");
+        
+        // Flux périodique pour scanner tous les guilds
+        reactor.core.publisher.Flux.interval(Duration.ofSeconds(SCAN_INTERVAL_SECONDS))
+                .flatMap(tick -> {
+                    System.out.println("\n⏰ [Scan #" + tick + "] Début du scan automatique de tous les serveurs...");
+                    return gateway.getGuilds()
+                            .flatMap(guild -> {
+                                System.out.println("🔍 Scan du serveur: " + guild.getName() + " (ID: " + guild.getId().asString() + ")");
+                                return scanGuildSilent(guild, gateway);
+                            })
+                            .doOnComplete(() -> System.out.println("✅ [Scan #" + tick + "] Scan automatique terminé\n"))
+                            .onErrorResume(e -> {
+                                System.err.println("❌ Erreur durant le scan automatique: " + e.getMessage());
+                                return Mono.empty();
+                            });
+                })
+                .subscribeOn(Schedulers.boundedElastic())
+                .subscribe();
+
         gateway.onDisconnect().block();
     }
 
@@ -267,7 +291,11 @@ public class ThrasherBotReactive {
                 `!thrasher help` - Affiche ce message
                 
                 **Commandes Admin :**
-                `!admin scan` - Scanne le serveur et sauvegarde les données
+                `!admin scan` - Scanne manuellement le serveur et sauvegarde les données
+                
+                **Scan automatique :** 🔄
+                Le bot scanne automatiquement tous les serveurs toutes les 5 minutes
+                pour persister: Users, Guilds, Channels, Roles et Messages dans la DB.
                 
                 **Commandes LLM :**
                 `/ask <texte>` - Pose une question au modèle
@@ -471,6 +499,58 @@ public class ThrasherBotReactive {
     }
 
     /**
+     * Version silencieuse du scan (sans messages Discord) pour le scan automatique.
+     * Scanne un serveur Discord et persiste : users, guild, channels, roles, messages.
+     */
+    private static Mono<Void> scanGuildSilent(Guild guild, GatewayDiscordClient gateway) {
+        return Mono.just(guild)
+                .flatMap(g -> {
+                    // 1. Sauvegarder les membres (Users)
+                    return g.getMembers()
+                            .flatMap(member -> saveUser(member).onErrorResume(e -> Mono.empty()))
+                            .then(Mono.just(g));
+                })
+                .flatMap(g -> {
+                    // 2. Sauvegarder la Guilde (nécessite Owner sauvegardé)
+                    return g.getOwner()
+                            .flatMap(owner -> saveGuild(g, owner))
+                            .flatMap(savedGuildId -> {
+                                // 3. Sauvegarder les Rôles
+                                return g.getRoles()
+                                        .flatMap(role -> saveRole(role, savedGuildId).onErrorResume(e -> {
+                                            System.err.println("Erreur sauvegarde rôle " + role.getName() + ": " + e.getMessage());
+                                            return Mono.empty();
+                                        }))
+                                        .then(Mono.just(savedGuildId));
+                            })
+                            .flatMap(savedGuildId -> {
+                                // 4. Sauvegarder les Channels
+                                return g.getChannels()
+                                        .flatMap(channel -> 
+                                            saveChannel(channel, savedGuildId)
+                                                .flatMap(savedChannelId -> {
+                                                    // 5. Sauvegarder les Messages (si TextChannel)
+                                                    if (channel instanceof TextChannel) {
+                                                        return ((TextChannel) channel).getMessagesBefore(Snowflake.of(System.currentTimeMillis()))
+                                                                .take(20) // Limite à 20 messages par canal pour le scan auto
+                                                                .concatMap(msg -> saveMessage(msg, savedChannelId).onErrorResume(e -> Mono.empty()))
+                                                                .then();
+                                                    }
+                                                    return Mono.empty();
+                                                })
+                                                .onErrorResume(e -> Mono.empty())
+                                        )
+                                        .then();
+                            })
+                            .onErrorResume(e -> {
+                                System.err.println("Erreur scan guild " + g.getName() + ": " + e.getMessage());
+                                return Mono.empty();
+                            });
+                })
+                .then();
+    }
+
+    /**
      * Envoie un utilisateur Discord vers l'API et retourne son identifiant DB.
      *
      * <p>Utilise un cache {@link #userMap} pour éviter des créations en double lors du scan.</p>
@@ -583,6 +663,29 @@ public class ThrasherBotReactive {
                     channelMap.put(discordChannel.getId(), id);
                     return id;
                 });
+    }
+
+    /**
+     * Envoie un rôle Discord vers l'API et retourne son identifiant DB.
+     */
+    private static Mono<Long> saveRole(discord4j.core.object.entity.Role discordRole, Long guildId) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("name", discordRole.getName());
+        payload.put("color", discordRole.getColor().getRGB());
+        payload.put("position", discordRole.getRawPosition());
+        payload.put("permissions", discordRole.getPermissions().getRawValue());
+        payload.put("mentionable", discordRole.isMentionable());
+        payload.put("hoisted", discordRole.isHoisted());
+        payload.put("discordId", discordRole.getId().asString());
+
+        Map<String, Object> guildRef = new HashMap<>();
+        guildRef.put("id", guildId);
+        payload.put("guild", guildRef);
+
+        return sendToApi("/roles", payload)
+                .map(json -> json.get("id").asLong())
+                .doOnSuccess(id -> System.out.println("✅ Rôle sauvegardé: " + discordRole.getName()))
+                .doOnError(e -> System.err.println("❌ Erreur rôle " + discordRole.getName() + ": " + e.getMessage()));
     }
 
     /**
