@@ -45,7 +45,7 @@ public class LangChain4jClient {
         this.chatModel = OllamaChatModel.builder()
                 .baseUrl("http://" + hostIp + ":" + port)
                 .modelName(modelName)
-                .timeout(Duration.ofSeconds(60))
+                .timeout(Duration.ofSeconds(120))
                 .build();
                 
         System.out.println("LangChain4J connecté à: http://" + hostIp + ":" + port + " (modèle: " + modelName + ")");
@@ -59,7 +59,7 @@ public class LangChain4jClient {
         this.chatModel = OllamaChatModel.builder()
                 .baseUrl("http://" + hostIp + ":" + port)
                 .modelName(modelName)
-                .timeout(Duration.ofSeconds(60))
+                .timeout(Duration.ofSeconds(120))
                 .build();
                 
         System.out.println("LangChain4J connecté à: http://" + hostIp + ":" + port + " (modèle: " + modelName + ")");
@@ -124,6 +124,96 @@ public class LangChain4jClient {
         } catch (Exception e) {
             e.printStackTrace();
             return "Erreur de traduction : " + e.getMessage();
+        }
+    }
+
+    /**
+     * Résume un texte (ex: conversation) de manière concise.
+     *
+     * @param text texte à résumer
+     * @return résumé, ou message d'erreur en cas d'exception
+     */
+    public String summarize(String text) {
+        try {
+            ChatMessage systemMessage = SystemMessage.from("Tu es un assistant expert en résumé. Résume le texte suivant de manière claire et concise, en conservant les points principaux.");
+            ChatMessage userMsg = UserMessage.from(text);
+
+            return this.chatModel.chat(systemMessage, userMsg).aiMessage().text();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "Erreur de résumé : " + e.getMessage();
+        }
+    }
+
+    /**
+     * Modère un message en détectant le contenu toxique, offensant ou inapproprié.
+     *
+     * @param message message à analyser
+     * @return analyse de modération (toxicité, recommandation)
+     */
+    public String moderate(String message) {
+        try {
+            ChatMessage systemMessage = SystemMessage.from("Tu es un modérateur IA. Analyse le message suivant et indique s'il est toxique, offensant, spam, ou inapproprié. Réponds avec: [OK] si acceptable, [ATTENTION] si limite, [TOXIQUE] si problématique, suivi d'une brève explication.");
+            ChatMessage userMsg = UserMessage.from(message);
+
+            return this.chatModel.chat(systemMessage, userMsg).aiMessage().text();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "Erreur de modération : " + e.getMessage();
+        }
+    }
+
+    /**
+     * Analyse le sentiment d'un ensemble de messages.
+     *
+     * @param messages texte contenant plusieurs messages
+     * @return analyse de sentiment (positif, négatif, neutre, ambiance)
+     */
+    public String analyzeSentiment(String messages) {
+        try {
+            ChatMessage systemMessage = SystemMessage.from("Tu es un expert en analyse de sentiment. Analyse l'ambiance générale des messages suivants et indique le sentiment dominant (positif, négatif, neutre), les émotions principales, et les sujets récurrents.");
+            ChatMessage userMsg = UserMessage.from(messages);
+
+            return this.chatModel.chat(systemMessage, userMsg).aiMessage().text();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "Erreur d'analyse : " + e.getMessage();
+        }
+    }
+
+    /**
+     * Détecte automatiquement la langue et traduit en français.
+     *
+     * @param text texte dans une langue quelconque
+     * @return traduction en français avec détection automatique de langue
+     */
+    public String translateAuto(String text) {
+        try {
+            ChatMessage systemMessage = SystemMessage.from("Tu es un traducteur polyglotte. Détecte automatiquement la langue du texte suivant et traduis-le en français. Indique d'abord la langue détectée, puis la traduction.");
+            ChatMessage userMsg = UserMessage.from(text);
+
+            return this.chatModel.chat(systemMessage, userMsg).aiMessage().text();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "Erreur de traduction automatique : " + e.getMessage();
+        }
+    }
+
+    /**
+     * Fournit la définition d'un mot ou concept.
+     *
+     * @param word mot ou expression à définir
+     * @return définition détaillée
+     */
+    public String define(String word) {
+        try {
+            ChatMessage systemMessage = SystemMessage.from("Tu es un dictionnaire intelligent. Fournis une définition claire, précise et accessible du mot ou concept suivant. Inclus des exemples d'utilisation si pertinent.");
+            ChatMessage userMsg = UserMessage.from(word);
+
+            return this.chatModel.chat(systemMessage, userMsg).aiMessage().text();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "Erreur de définition : " + e.getMessage();
         }
     }
 

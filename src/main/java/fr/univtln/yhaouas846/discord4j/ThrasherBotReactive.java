@@ -28,6 +28,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.HashMap;
@@ -67,7 +68,10 @@ public class ThrasherBotReactive {
     private static final String HELLBOMB_DIRECTORY = "discord-bot-resources/thrasher-hellbomb";
     private static final Random random = new Random();
 
-    private static final HttpClient httpClient = HttpClient.newHttpClient();
+    private static final HttpClient httpClient = HttpClient.newBuilder()
+            .version(HttpClient.Version.HTTP_1_1)
+            .connectTimeout(Duration.ofSeconds(10))
+            .build();
     private static final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
     private static final String API_URL = "http://localhost:8080/api";
 
@@ -125,6 +129,43 @@ public class ThrasherBotReactive {
                 return message.getChannel()
                         .flatMap(channel -> channel.createMessage(response))
                         .then();
+            }
+
+            if (content.startsWith("/summarize")) {
+                return handleSummarize(message, ollama);
+            }
+
+            if (content.startsWith("/moderate ")) {
+                String userInput = content.substring(10);
+                String response = ollama.moderate(userInput);
+                return message.getChannel()
+                        .flatMap(channel -> channel.createMessage("🛡️ **Analyse de modération:**\n" + response))
+                        .then();
+            }
+
+            if (content.equalsIgnoreCase("/analyze")) {
+                return handleAnalyze(message, ollama);
+            }
+
+            if (content.startsWith("/translate-auto ")) {
+                String userInput = content.substring(16);
+                String response = ollama.translateAuto(userInput);
+                return message.getChannel()
+                        .flatMap(channel -> channel.createMessage("🌐 **Traduction automatique:**\n" + response))
+                        .then();
+            }
+
+            if (content.startsWith("/define ")) {
+                String word = content.substring(8);
+                String response = ollama.define(word);
+                return message.getChannel()
+                        .flatMap(channel -> channel.createMessage("📖 **Définition:**\n" + response))
+                        .then();
+            }
+
+            if (content.startsWith("/weather ")) {
+                String city = content.substring(9).trim();
+                return handleWeather(message, city);
             }
 
             // ------------------- COMMANDES THRASHER -------------------
@@ -231,8 +272,121 @@ public class ThrasherBotReactive {
                 **Commandes LLM :**
                 `/ask <texte>` - Pose une question au modèle
                 `/translate <texte>` - Traduit un texte en français
+                `/summarize` - Résume les 20 derniers messages du salon
+                `/moderate <message>` - Analyse la toxicité d'un message
+                `/analyze` - Analyse le sentiment des 30 derniers messages
+                `/translate-auto <texte>` - Traduction avec détection auto de langue
+                `/define <mot>` - Définition d'un mot ou concept
+                `/weather <ville>` - Météo d'une ville
                 """;
         return message.getChannel().flatMap(ch -> ch.createMessage(help)).then();
+    }
+
+    /**
+     * Commande {@code /summarize} : résume les derniers messages du salon.
+     */
+    private static Mono<Void> handleSummarize(Message message, LangChain4jClient ollama) {
+        return message.getChannel()
+                .flatMap(channel -> channel.createMessage("⏳ Analyse en cours, veuillez patienter...").then(Mono.just(channel)))
+                .flatMap(channel -> {
+                    if (channel instanceof TextChannel) {
+                        return ((TextChannel) channel).getMessagesBefore(message.getId())
+                                .take(20)
+                                .map(msg -> {
+                                    String author = msg.getAuthor().map(User::getUsername).orElse("Unknown");
+                                    return author + ": " + msg.getContent();
+                                })
+                                .filter(content -> !content.endsWith(": ")) // Ignore messages vides
+                                .collectList()
+                                .flatMap(messagesList -> {
+                                    if (messagesList.isEmpty()) {
+                                        return channel.createMessage("❌ Aucun message à résumer.");
+                                    }
+                                    
+                                    String messagesText = String.join("\n", messagesList);
+                                    String summary = ollama.summarize(messagesText);
+                                    return channel.createMessage("📝 **Résumé des derniers messages:**\n" + summary);
+                                })
+                                .then();
+                    } else {
+                        return channel.createMessage("❌ Cette commande fonctionne uniquement dans les salons texte.").then();
+                    }
+                });
+    }
+
+    /**
+     * Commande {@code /analyze} : analyse le sentiment des derniers messages.
+     */
+    private static Mono<Void> handleAnalyze(Message message, LangChain4jClient ollama) {
+        return message.getChannel()
+                .flatMap(channel -> channel.createMessage("⏳ Analyse en cours, cela peut prendre jusqu'à 2 minutes...").then(Mono.just(channel)))
+                .flatMap(channel -> {
+                    if (channel instanceof TextChannel) {
+                        return ((TextChannel) channel).getMessagesBefore(message.getId())
+                                .take(30)
+                                .map(msg -> {
+                                    String author = msg.getAuthor().map(User::getUsername).orElse("Unknown");
+                                    return author + ": " + msg.getContent();
+                                })
+                                .filter(content -> !content.endsWith(": "))
+                                .collectList()
+                                .flatMap(messagesList -> {
+                                    if (messagesList.isEmpty()) {
+                                        return channel.createMessage("❌ Aucun message à analyser.");
+                                    }
+                                    
+                                    String messagesText = String.join("\n", messagesList);
+                                    String analysis = ollama.analyzeSentiment(messagesText);
+                                    return channel.createMessage("📊 **Analyse de sentiment:**\n" + analysis);
+                                })
+                                .then();
+                    } else {
+                        return channel.createMessage("❌ Cette commande fonctionne uniquement dans les salons texte.").then();
+                    }
+                });
+    }
+
+    /**
+     * Commande {@code /weather} : récupère la météo via wttr.in API.
+     */
+    private static Mono<Void> handleWeather(Message message, String city) {
+        return message.getChannel()
+                .flatMap(ch -> ch.createMessage("⏳ Récupération de la météo pour " + city + "..."))
+                .then(Mono.fromCallable(() -> {
+                    try {
+                        // API wttr.in - format texte simple avec émojis
+                        String url = "https://wttr.in/" + city.replace(" ", "+") + "?0&T&Q&lang=fr";
+                        HttpRequest request = HttpRequest.newBuilder()
+                                .uri(URI.create(url))
+                                .header("User-Agent", "curl/7.68.0")
+                                .header("Accept-Language", "fr")
+                                .timeout(Duration.ofSeconds(10))
+                                .GET()
+                                .build();
+                        
+                        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+                        if (response.statusCode() == 200 && !response.body().isEmpty()) {
+                            // Nettoyer et formater la réponse
+                            String weather = response.body().trim();
+                            // Limiter à 5 premières lignes pour éviter trop de texte
+                            String[] lines = weather.split("\n");
+                            StringBuilder result = new StringBuilder("🌤️ **Météo pour " + city + ":**\n```\n");
+                            for (int i = 0; i < Math.min(5, lines.length); i++) {
+                                result.append(lines[i]).append("\n");
+                            }
+                            result.append("```");
+                            return result.toString();
+                        } else {
+                            return "❌ Impossible de récupérer la météo pour: " + city + " (code: " + response.statusCode() + ")";
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        return "❌ Erreur météo: " + e.getMessage();
+                    }
+                })
+                .subscribeOn(Schedulers.boundedElastic())
+                .flatMap(weatherText -> message.getChannel().flatMap(ch -> ch.createMessage(weatherText)))
+                .then());
     }
 
     private static File[] getImageFiles(File directory) {

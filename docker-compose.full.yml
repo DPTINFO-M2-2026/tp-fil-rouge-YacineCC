@@ -20,7 +20,7 @@ services:
       retries: 10
     restart: unless-stopped
 
-  # Ollama (LLM en Docker)
+  # Ollama (LLM en Docker avec GPU NVIDIA)
   ollama:
     image: ollama/ollama:latest
     container_name: discord-bot-ollama
@@ -30,6 +30,13 @@ services:
       - ollama-data:/root/.ollama
     networks:
       - discord-bot-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     healthcheck:
       test: ["CMD", "ollama", "list"]
       interval: 10s
