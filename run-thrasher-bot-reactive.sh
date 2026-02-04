@@ -2,6 +2,12 @@
 
 # Script pour lancer le ThrasherBot Reactive (version avec Mono)
 
+# Charger les variables du fichier .env si présent
+if [ -f .env ]; then
+    echo "📝 Chargement des variables depuis .env..."
+    export $(grep -v '^#' .env | xargs)
+fi
+
 echo "🛹 Lancement du ThrasherBot Reactive (Mono)..."
 echo "================================"
 

@@ -73,3 +73,36 @@ USER 1001
 ENV JAVA_OPTS="-Dquarkus.http.host=0.0.0.0"
 ENTRYPOINT ["java"]
 CMD ["-jar", "/app/quarkus-run.jar"]
+
+
+# ------------------------------
+# bot: Discord Bot (ThrasherBot Reactive) - Standalone Java app
+# ------------------------------
+FROM ${MAVEN_IMAGE} AS bot-build
+WORKDIR /workspace
+
+ENV MAVEN_CONFIG=""
+
+COPY --from=deps /root/.m2 /root/.m2
+COPY . .
+
+# Just compile, don't package
+RUN ./mvnw -q compile
+
+# Bot runtime - Maven image to run with exec:java
+FROM ${MAVEN_IMAGE} AS bot
+WORKDIR /app
+
+ENV MAVEN_CONFIG=""
+
+# Copy everything needed
+COPY --from=bot-build /root/.m2 /root/.m2
+COPY --from=bot-build /workspace /app
+
+RUN chmod +x /app/mvnw
+
+USER 1000
+
+# Run the bot with maven exec
+ENTRYPOINT ["/app/mvnw"]
+CMD ["exec:java", "-Dexec.mainClass=fr.univtln.yhaouas846.discord4j.ThrasherBotReactive"]
