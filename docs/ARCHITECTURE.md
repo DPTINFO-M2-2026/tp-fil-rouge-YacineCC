@@ -4,6 +4,20 @@
 
 Ce projet suit une **architecture en couches (Layered Architecture)** avec une séparation claire des responsabilités. L'application est construite avec **Quarkus** (framework Java cloud-native) et respecte les principes **SOLID** pour garantir la maintenabilité et l'extensibilité du code.
 
+## Diagrammes UML
+
+Tous les diagrammes sont en **PlantUML** dans le dossier `docs/` :
+
+| Diagramme | Fichier | Description |
+|-----------|---------|-------------|
+| Modèle de données | [`entity-model.puml`](entity-model.puml) | Classes d'entités JPA, relations, contraintes |
+| Architecture Docker | [`architecture-docker.puml`](architecture-docker.puml) | Services, réseaux, dépendances de démarrage |
+| Cas d'utilisation | [`use-cases.puml`](use-cases.puml) | Acteurs, fonctionnalités API REST et Bot |
+| Séquence — Créer un utilisateur | [`sequence-create-user.puml`](sequence-create-user.puml) | Flux complet POST /api/users (succès + erreur) |
+| Séquence — Envoyer un message | [`sequence-send-message.puml`](sequence-send-message.puml) | Vérification de permissions + scan auto |
+
+> 💡 Pour visualiser : installer l'extension **PlantUML** dans VS Code, ou coller le contenu sur [plantuml.com](https://www.plantuml.com/plantuml/uml).
+
 ## Architecture globale
 
 ```
@@ -353,3 +367,56 @@ Client ← HTTP Error + ErrorResponse
 4. **GraphQL** : Ajout d'une couche GraphQL en complément REST
 5. **Audit** : Traçabilité des modifications (qui, quand, quoi)
 6. **Security** : Authentification JWT et autorisation basée sur les rôles
+
+## Architecture Docker
+
+> Voir le diagramme complet : [`architecture-docker.puml`](architecture-docker.puml)
+
+### Dockerfile — build multi-stage (5 étapes)
+
+| Étape | Image de base | Rôle |
+|-------|--------------|------|
+| **deps** | `maven:3.9.9-eclipse-temurin-21` | Pré-télécharge les dépendances Maven (cache Docker) |
+| **build** | `maven:3.9.9-eclipse-temurin-21` | Compile et package le fast-jar Quarkus |
+| **dev** | `maven:3.9.9-eclipse-temurin-21` | Mode développement avec hot-reload (ports 8080, 5005) |
+| **runtime** | `eclipse-temurin:21-jre` | Image de production minimale (JRE, non-root) |
+| **bot** | `maven:3.9.9-eclipse-temurin-21` | Exécution standalone du bot Discord4J |
+
+### Docker Compose — 3 variantes
+
+| Fichier | Services | Usage |
+|---------|----------|-------|
+| `docker-compose.dev.yml` | db + app (dev) | Développement local avec hot-reload |
+| `docker-compose.prod.yml` | db + app (runtime) + pgadmin | Production avec healthchecks |
+| `docker-compose.full.yml` | db + app + bot + ollama + ollama-pull | Stack complète (API + Bot + IA) |
+
+### Services détaillés (full stack)
+
+```
+┌───────────────┐     ┌───────────────┐     ┌───────────────┐
+│  PostgreSQL   │◄────│  Quarkus API  │◄────│ ThrasherBot   │
+│  :5432        │     │  :8080        │     │ (Discord4J)   │
+└───────────────┘     └───────┬───────┘     └───────┬───────┘
+                              │                     │
+                              │              ┌──────┴───────┐
+                              │              │ Discord API  │
+                              │              │ (WebSocket)  │
+                              │              └──────────────┘
+                      ┌───────┴───────┐
+                      │  Ollama LLM   │
+                      │  :11434 (GPU) │
+                      └───────────────┘
+```
+
+## Processeur d'annotation custom
+
+Le projet inclut un **processeur d'annotation JSR 269** (`@Logged`) qui intervient à **deux niveaux** :
+
+### Compile-time — `LoggedProcessor`
+- Valide que `@Logged` est utilisé sur des méthodes publiques non-statiques
+- Génère un rapport `META-INF/logged-methods.txt` listant toutes les méthodes annotées
+
+### Runtime — `LoggedInterceptor` (CDI)
+- Intercepte les appels aux méthodes annotées `@Logged`
+- Log automatique : ➡ entrée (classe, méthode, arguments), ✅ sortie (durée), ❌ erreur
+- Transparent : ne modifie pas le comportement métier
