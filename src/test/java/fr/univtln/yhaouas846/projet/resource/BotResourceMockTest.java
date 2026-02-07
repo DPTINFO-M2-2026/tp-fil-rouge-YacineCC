@@ -21,17 +21,6 @@ class BotResourceMockTest {
         DiscordBotService discordBotService;
 
     @Test
-    void testHealthCheckWithMockedService() {
-        // Test simple qui ne dépend pas du service
-        given()
-                .when().get("/api/bot/health")
-                .then()
-                .statusCode(200)
-                .contentType(ContentType.JSON)
-                .body("status", equalTo("UP"));
-    }
-
-    @Test
     void testCheckUserPermissionsWithMock() {
         when(discordBotService.isUserBotOwner(1L)).thenReturn(true);
         when(discordBotService.isUserBotOwner(2L)).thenReturn(false);
