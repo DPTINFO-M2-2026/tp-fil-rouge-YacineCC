@@ -33,11 +33,22 @@ import java.util.List;
 @Consumes(MediaType.APPLICATION_JSON)
 public class UserResource {
 
+    /**
+     * Liste tous les utilisateurs.
+     *
+     * @return liste de tous les utilisateurs enregistrés
+     */
     @GET
     public List<User> getAllUsers() {
         return User.listAll();
     }
 
+    /**
+     * Récupère un utilisateur par son identifiant.
+     *
+     * @param id identifiant de l'utilisateur
+     * @return {@code 200} avec l'utilisateur, ou {@code 404} si introuvable
+     */
     @GET
     @Path("/{id}")
     public Response getUserById(@PathParam("id") Long id) {
@@ -152,6 +163,11 @@ public class UserResource {
         return Response.ok(user).build();
     }
 
+    /**
+     * Liste tous les comptes bot.
+     *
+     * @return liste des utilisateurs dont {@code isBot} vaut {@code true}
+     */
     @GET
     @Path("/bots")
     public List<User> getBots() {

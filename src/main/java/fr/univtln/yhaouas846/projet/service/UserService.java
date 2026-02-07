@@ -1,5 +1,6 @@
 package fr.univtln.yhaouas846.projet.service;
 
+import fr.univtln.yhaouas846.projet.annotation.Logged;
 import fr.univtln.yhaouas846.projet.dto.*;
 import fr.univtln.yhaouas846.projet.entity.User;
 import fr.univtln.yhaouas846.projet.repository.UserRepository;
@@ -129,9 +130,9 @@ public class UserService {
      * @return DTO de l'utilisateur créé
      * @throws BusinessException si les contraintes d'unicité ne sont pas respectées
      */
+    @Logged
     @Transactional
     public UserDTO createUser(CreateUserDTO createDTO) {
-        LOG.infof("Création d'un nouvel utilisateur : %s#%s", createDTO.username, createDTO.discriminator);
         
         // Validation métier : unicité de l'email
         if (createDTO.email != null) {
@@ -154,8 +155,6 @@ public class UserService {
         // Création et persistance
         User user = userMapper.toEntity(createDTO);
         user.persist();
-        
-        LOG.infof("Utilisateur créé avec succès : id=%d", user.id);
         return userMapper.toDTO(user);
     }
     
@@ -171,9 +170,9 @@ public class UserService {
      * @throws ResourceNotFoundException si l'utilisateur n'existe pas
      * @throws BusinessException si les contraintes d'unicité ne sont pas respectées
      */
+    @Logged
     @Transactional
     public UserDTO updateUser(Long id, UpdateUserDTO updateDTO) {
-        LOG.infof("Mise à jour de l'utilisateur id=%d", id);
         
         User user = User.findById(id);
         if (user == null) {
@@ -193,8 +192,6 @@ public class UserService {
         // Application des modifications
         userMapper.updateEntityFromUpdateDTO(updateDTO, user);
         user.persist();
-        
-        LOG.infof("Utilisateur mis à jour avec succès : id=%d", user.id);
         return userMapper.toDTO(user);
     }
     
@@ -207,9 +204,9 @@ public class UserService {
      * @param id identifiant de l'utilisateur à supprimer
      * @throws ResourceNotFoundException si l'utilisateur n'existe pas
      */
+    @Logged
     @Transactional
     public void deleteUser(Long id) {
-        LOG.infof("Suppression de l'utilisateur id=%d", id);
         
         User user = User.findById(id);
         if (user == null) {
@@ -218,6 +215,5 @@ public class UserService {
         }
         
         user.delete();
-        LOG.infof("Utilisateur supprimé avec succès : id=%d", id);
     }
 }
