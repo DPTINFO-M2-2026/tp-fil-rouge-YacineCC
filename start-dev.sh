@@ -1,63 +1,82 @@
 #!/bin/bash
 
-# Script de démarrage pour l'environnement de développement local
-# PostgreSQL en Docker + Quarkus en local pour un hot reload optimal
+# Lance toute la stack : PostgreSQL + Ollama/LLM + API Quarkus + Bot Discord
+# Utilise docker-compose.full.yml
 
 set -e
 
-echo "🚀 Démarrage de l'environnement de développement..."
+echo "🚀 Démarrage de la stack complète..."
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# Vérifier que Docker est disponible
+# --- Vérifications -----------------------------------------------------------
+
 if ! command -v docker &> /dev/null; then
-    echo "❌ Docker n'est pas installé ou n'est pas dans le PATH"
+    echo "❌ Docker n'est pas installé"
     exit 1
 fi
 
-# Vérifier que Java 21 est disponible
-if ! command -v java &> /dev/null; then
-    echo "❌ Java n'est pas installé ou n'est pas dans le PATH"
-    exit 1
+# Charger .env si présent
+if [ -f .env ]; then
+    export $(grep -v '^#' .env | xargs 2>/dev/null)
 fi
 
-JAVA_VERSION=$(java -version 2>&1 | head -n 1 | awk -F '"' '{print $2}' | cut -d'.' -f1)
-if [ "$JAVA_VERSION" -lt 21 ]; then
-    echo "❌ Java 21 ou supérieur est requis (version actuelle: $JAVA_VERSION)"
-    exit 1
+if [ -z "$DISCORD_TOKEN" ]; then
+    echo "⚠️  DISCORD_TOKEN non défini — le bot Discord ne démarrera pas."
+    echo "   Créez un fichier .env avec : DISCORD_TOKEN=votre_token"
+    echo ""
+    read -p "Continuer sans le bot ? (Y/n) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Nn]$ ]]; then exit 1; fi
 fi
 
-echo "✅ Docker et Java 21+ détectés"
+echo "✅ Docker disponible"
 
-# Démarrer PostgreSQL en Docker
-echo "🐘 Démarrage de PostgreSQL..."
-docker compose -f docker-compose.dev.yml up -d db
+# --- Build & lancement -------------------------------------------------------
 
-# Attendre que PostgreSQL soit prêt
+echo ""
+echo "🔨 Build des images Docker..."
+docker compose -f docker-compose.full.yml build
+
+echo ""
+echo "🐳 Démarrage des services..."
+docker compose -f docker-compose.full.yml up -d
+
+# --- Attente PostgreSQL -------------------------------------------------------
+
+echo ""
 echo "⏳ Attente de PostgreSQL..."
-until docker compose -f docker-compose.dev.yml exec -T db pg_isready -U discord_bot -d discord_bot_db &> /dev/null; do
+until docker compose -f docker-compose.full.yml exec -T db pg_isready -U discord_bot -d discord_bot_db &> /dev/null 2>&1; do
     printf "."
     sleep 1
 done
-echo ""
-echo "✅ PostgreSQL est prêt"
+echo " ✅"
 
-# Afficher les infos de connexion
-echo ""
-echo "📊 Base de données PostgreSQL:"
-echo "   URL: jdbc:postgresql://localhost:5432/discord_bot_db"
-echo "   User: discord_bot"
-echo "   Password: discord_password"
-echo ""
+# --- Attente API --------------------------------------------------------------
 
-# Lancer Quarkus en mode dev
-echo "⚡ Démarrage de Quarkus en mode développement..."
-echo "   API: http://localhost:8080"
-echo "   Dev UI: http://localhost:8080/q/dev/"
-echo "   Debug port: 5005"
-echo ""
-echo "💡 Appuyez sur Ctrl+C pour arrêter"
-echo ""
+echo "⏳ Attente de l'API Quarkus..."
+for i in $(seq 1 60); do
+    if curl -sf http://localhost:8080/q/health/ready &> /dev/null; then
+        echo " ✅"
+        break
+    fi
+    printf "."
+    sleep 2
+done
 
-./mvnw quarkus:dev \
-    -Dquarkus.datasource.jdbc.url=jdbc:postgresql://localhost:5432/discord_bot_db \
-    -Dquarkus.datasource.username=discord_bot \
-    -Dquarkus.datasource.password=discord_password
+# --- Résumé -------------------------------------------------------------------
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "✅ Stack démarrée"
+echo ""
+echo "  🐘 PostgreSQL   : localhost:5432"
+echo "  🌐 API REST     : http://localhost:8080"
+echo "  🤖 Ollama (LLM) : http://localhost:11434"
+echo "  🛹 Bot Discord  : actif (si token configuré)"
+echo ""
+echo "📋 Commandes utiles :"
+echo "  Logs        : docker compose -f docker-compose.full.yml logs -f"
+echo "  Logs API    : docker compose -f docker-compose.full.yml logs -f app"
+echo "  Logs bot    : docker compose -f docker-compose.full.yml logs -f bot"
+echo "  Arrêter     : ./stop-dev.sh"
+echo "  Test API    : ./test-api.sh"

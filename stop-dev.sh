@@ -1,11 +1,13 @@
 #!/bin/bash
 
-# Script d'arrêt de l'environnement de développement
+# Arrête toute la stack lancée par start-dev.sh
 
-echo "🛑 Arrêt de l'environnement de développement..."
+echo "🛑 Arrêt de tous les services..."
 
-# Arrêter PostgreSQL
-docker compose -f docker-compose.dev.yml down
+docker compose -f docker-compose.full.yml down
 
-echo "✅ Environnement de développement arrêté"
-echo "💾 Les données PostgreSQL sont conservées dans le volume Docker"
+echo "✅ Stack arrêtée"
+echo "💾 Les données (PostgreSQL, modèles Ollama) sont conservées dans les volumes"
+echo ""
+echo "💡 Pour tout supprimer (données incluses) :"
+echo "   docker compose -f docker-compose.full.yml down -v"
