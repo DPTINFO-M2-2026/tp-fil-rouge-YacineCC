@@ -117,9 +117,10 @@ Service Layer · Repository · DTO · Mapper · Exception Handler · Active Reco
 |-----------|-----------|
 | `/api/users` | `GET` · `POST` · `PUT /{id}` · `DELETE /{id}` · `GET /username/{u}` · `GET /bots` |
 | `/api/guilds` | `GET` · `POST` · `PUT /{id}` · `DELETE /{id}` |
-| `/api/channels` | `GET` · `POST` · `GET /guild/{guildId}` |
-| `/api/roles` | `GET` · `POST` |
-| `/api/messages` | `GET ?limit=` · `POST` · `PUT /{id}` · `DELETE /{id}` · `GET /channel/{cId}` |
+| `/api/channels` | `GET` · `POST` · `GET /{id}` · `PUT /{id}` · `DELETE /{id}` · `GET /guild/{guildId}` · `GET /type/{type}` |
+| `/api/roles` | `GET` · `POST` · `GET /{id}` · `PUT /{id}` · `DELETE /{id}` · `GET /guild/{guildId}` · `POST /{roleId}/users/{userId}` · `DELETE /{roleId}/users/{userId}` |
+| `/api/messages` | `GET ?limit=` · `POST` · `GET /{id}` · `PUT /{id}` · `DELETE /{id}` · `GET /channel/{cId}` · `GET /user/{uId}` · `GET /search?q=` |
+| `/api/bot` | `GET /health` · `POST /guilds` · `POST /messages` · `DELETE /messages/{id}` · `GET /messages/channel/{cId}` · `POST /guilds/{gId}/members/{uId}` · `GET /users/{uId}/guilds` · `GET /users/{uId}/permissions` |
 
 ### Format d'erreur standardisé
 
@@ -137,12 +138,15 @@ Service Layer · Repository · DTO · Mapper · Exception Handler · Active Reco
 
 ## Tests
 
+141 tests unitaires et d'intégration (JUnit 5 + Mockito + RestAssured) :
+
 | Type | Fichiers | Couverture |
 |------|----------|------------|
 | Entités | `UserTest`, `GuildTest`, `ChannelTest`, `RoleTest`, `MessageTest` | Validation, lifecycle, relations |
-| Services | `UserServiceTest`, `DiscordBotServiceTest`, mocks Mockito | Logique métier, exceptions |
-| Resources | `UserResourceTest`, `GuildResourceTest`, `BotResourceTest` | Endpoints REST, codes HTTP |
-| Intégration | `DiscordBotIntegrationTest`, `DiscordBotFunctionalTest` | Scénarios end-to-end |
+| Services | `UserServiceTest`, `DiscordBotServiceMockTest`, `UserMapperTest` | Logique métier, mocks Mockito |
+| Resources | `UserResourceTest`, `GuildResourceTest`, `ChannelResourceTest`, `RoleResourceTest`, `BotResourceTest`, `BotResourceMockTest` | Endpoints REST, codes HTTP |
+| Intégration | `MessageResourceIntegrationTest` | Scénarios end-to-end (H2) |
+| Annotation | `LoggedInterceptorTest` | Processeur d'annotation `@Logged` |
 
 ```bash
 ./mvnw test                         # Tous les tests
@@ -176,4 +180,8 @@ Service Layer · Repository · DTO · Mapper · Exception Handler · Active Reco
 | **[INSTALL.md](INSTALL.md)** | Installation, démarrage, déploiement |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architecture détaillée, SOLID, patterns |
 | [docs/ENTITY_MODEL.md](docs/ENTITY_MODEL.md) | Diagramme UML et relations |
-| [docs/entity-model.puml](docs/entity-model.puml) | Source PlantUML du diagramme |
+| [docs/entity-model.puml](docs/entity-model.puml) | Modèle de données PlantUML |
+| [docs/architecture-docker.puml](docs/architecture-docker.puml) | Architecture Docker (services, réseaux) |
+| [docs/use-cases.puml](docs/use-cases.puml) | Cas d'utilisation (acteurs, fonctionnalités) |
+| [docs/sequence-create-user.puml](docs/sequence-create-user.puml) | Séquence — création d'un utilisateur |
+| [docs/sequence-send-message.puml](docs/sequence-send-message.puml) | Séquence — envoi de message avec permissions |

@@ -18,7 +18,7 @@ participant "RoleRepository" as RR
 participant "MessageRepository" as MR
 database "PostgreSQL" as DB
 
-U -> Bot : !quote "Hello world"
+U -> Bot : !thrasher "Hello world"
 activate Bot
 
 Bot -> BR : POST /api/bot/messages\n?authorId=1&channelId=2\n&content="Hello world"
