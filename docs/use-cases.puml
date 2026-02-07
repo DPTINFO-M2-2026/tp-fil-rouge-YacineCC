@@ -1,0 +1,90 @@
+@startuml Cas d'utilisation — BotDiscord
+
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam backgroundColor #FEFEFE
+skinparam usecase {
+    BackgroundColor #E3F2FD
+    BorderColor #1565C0
+}
+
+title Diagramme de cas d'utilisation
+
+' ─── Acteurs ──────────────────────────────────────────────────
+actor "Utilisateur\nDiscord" as user
+actor "Administrateur\nGuilde" as admin
+actor "Client\nREST" as restclient
+
+admin --|> user
+
+' ─── API REST (Quarkus) ──────────────────────────────────────
+package "API REST (Quarkus)" {
+    usecase "Lister les utilisateurs" as UC_LIST_USERS
+    usecase "Consulter un utilisateur" as UC_GET_USER
+    usecase "Créer un utilisateur" as UC_CREATE_USER
+    usecase "Modifier un utilisateur" as UC_UPDATE_USER
+    usecase "Supprimer un utilisateur" as UC_DELETE_USER
+
+    usecase "Gérer les guildes\n(CRUD)" as UC_GUILD
+    usecase "Gérer les canaux\n(CRUD)" as UC_CHANNEL
+    usecase "Gérer les rôles\n(CRUD + assignation)" as UC_ROLE
+    usecase "Gérer les messages\n(CRUD + recherche)" as UC_MESSAGE
+}
+
+restclient --> UC_LIST_USERS
+restclient --> UC_GET_USER
+restclient --> UC_CREATE_USER
+restclient --> UC_UPDATE_USER
+restclient --> UC_DELETE_USER
+restclient --> UC_GUILD
+restclient --> UC_CHANNEL
+restclient --> UC_ROLE
+restclient --> UC_MESSAGE
+
+' ─── Bot Discord ─────────────────────────────────────────────
+package "Bot Discord (ThrasherBot)" {
+    usecase "Envoyer un message\n(!thrasher, !quote)" as UC_BOT_MSG
+    usecase "Scanner et synchroniser\nle serveur Discord" as UC_BOT_SCAN
+    usecase "Analyser un message\nvia IA (!analyze)" as UC_BOT_AI
+    usecase "Créer une guilde\navec canaux par défaut" as UC_BOT_GUILD
+    usecase "Gérer les membres\n(ajout, rôles)" as UC_BOT_MEMBER
+    usecase "Supprimer un message\n(avec vérification\nde permissions)" as UC_BOT_DELETE
+    usecase "Afficher les infos\nserveur (!serverinfo)" as UC_BOT_INFO
+}
+
+user --> UC_BOT_MSG
+user --> UC_BOT_AI
+user --> UC_BOT_INFO
+admin --> UC_BOT_SCAN
+admin --> UC_BOT_GUILD
+admin --> UC_BOT_MEMBER
+admin --> UC_BOT_DELETE
+
+' ─── Relations ────────────────────────────────────────────────
+UC_BOT_SCAN ..> UC_CREATE_USER : <<include>>\nsync users
+UC_BOT_SCAN ..> UC_GUILD : <<include>>\nsync guilds
+UC_BOT_SCAN ..> UC_CHANNEL : <<include>>\nsync channels
+UC_BOT_SCAN ..> UC_MESSAGE : <<include>>\nsync messages
+
+UC_BOT_GUILD ..> UC_GUILD : <<include>>
+UC_BOT_MEMBER ..> UC_ROLE : <<include>>
+UC_BOT_DELETE ..> UC_MESSAGE : <<include>>
+
+UC_BOT_AI ..> (Ollama LLM) : <<include>>\nappel IA
+
+' ─── Notes ────────────────────────────────────────────────────
+note bottom of UC_BOT_SCAN
+    Le bot scanne périodiquement
+    tous les serveurs Discord et
+    synchronise les données vers
+    l'API REST (upsert par discordId)
+end note
+
+note right of UC_BOT_DELETE
+    Vérification des permissions :
+    owner de la guilde OU rôle avec
+    canManageMessages = true
+end note
+
+@enduml

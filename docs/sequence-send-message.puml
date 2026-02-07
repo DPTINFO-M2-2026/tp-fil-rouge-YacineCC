@@ -1,0 +1,79 @@
+@startuml Séquence — Envoi d'un message via le Bot
+
+skinparam backgroundColor #FEFEFE
+skinparam sequence {
+    ArrowColor #1565C0
+    LifeLineBorderColor #1565C0
+    ParticipantBackgroundColor #E3F2FD
+    ParticipantBorderColor #1565C0
+}
+
+title Diagramme de séquence — Envoi d'un message avec vérification de permissions
+
+actor "Utilisateur\nDiscord" as U
+participant "ThrasherBot\n(Discord4J)" as Bot
+participant "BotResource\n(JAX-RS)" as BR
+participant "DiscordBotService" as DS
+participant "RoleRepository" as RR
+participant "MessageRepository" as MR
+database "PostgreSQL" as DB
+
+U -> Bot : !quote "Hello world"
+activate Bot
+
+Bot -> BR : POST /api/bot/messages\n?authorId=1&channelId=2\n&content="Hello world"
+activate BR
+
+BR -> DS : sendMessage(1, 2, "Hello world")
+activate DS
+
+DS -> DS : checkPermission(author, channel)
+activate DS #FFF9C4
+
+DS -> RR : findByGuildAndUser(guild, user)
+activate RR
+RR -> DB : SELECT r.* FROM role r\nJOIN user_roles …
+DB --> RR : roles[]
+RR --> DS : List<Role>
+deactivate RR
+
+alt Aucun rôle avec canSendMessages
+    DS --> BR : throw SecurityException\n"Pas de permission"
+    BR --> Bot : HTTP 403 Forbidden
+    Bot --> U : ❌ "Permission refusée"
+else Rôle autorisé trouvé
+    DS -> DS : permission OK ✅
+    deactivate DS
+
+    DS -> MR : persist(message)
+    activate MR
+    MR -> DB : INSERT INTO message …
+    DB --> MR : OK
+    MR --> DS : Message (persisté)
+    deactivate MR
+
+    DS --> BR : Message
+    deactivate DS
+
+    BR --> Bot : HTTP 201 Created\n+ Message (JSON)
+    deactivate BR
+
+    Bot --> U : ✅ Message envoyé
+end
+
+deactivate Bot
+
+== Scan automatique périodique ==
+
+Bot -> Bot : scheduled scan\n(toutes les 5s)
+activate Bot #E8EAF6
+
+loop pour chaque guilde Discord
+    Bot -> BR : POST /api/users\n(upsert par discordId)
+    Bot -> BR : POST /api/guilds\n(upsert par discordId)
+    Bot -> BR : POST /api/channels\n(upsert par discordId)
+end
+
+deactivate Bot
+
+@enduml

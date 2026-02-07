@@ -1,0 +1,104 @@
+@startuml Séquence — Création d'un utilisateur
+
+skinparam backgroundColor #FEFEFE
+skinparam sequence {
+    ArrowColor #1565C0
+    LifeLineBorderColor #1565C0
+    ParticipantBackgroundColor #E3F2FD
+    ParticipantBorderColor #1565C0
+}
+
+title Diagramme de séquence — Création d'un utilisateur (POST /api/users)
+
+actor "Client" as C
+participant "UserResource\n(JAX-RS)" as R
+participant "@Logged\nInterceptor" as I #FFF9C4
+participant "UserService" as S
+participant "UserMapper" as M
+participant "UserRepository" as Repo
+database "PostgreSQL\n(H2 en test)" as DB
+
+C -> R : POST /api/users\n+ CreateUserDTO (JSON)
+activate R
+
+R -> R : @Valid — Bean Validation
+note right
+    username: 2-32 chars
+    discriminator: 4 digits
+    email: @Email
+end note
+
+R -> S : createUser(CreateUserDTO)
+activate S
+
+I -> I : ➡ log entry\n(classe, méthode, args)
+activate I #FFF9C4
+
+S -> Repo : findByEmail(email)
+activate Repo
+Repo -> DB : SELECT … WHERE email = ?
+DB --> Repo : null
+Repo --> S : Optional.empty()
+deactivate Repo
+
+S -> Repo : findByDiscordId(discordId)
+activate Repo
+Repo -> DB : SELECT … WHERE discord_id = ?
+DB --> Repo : null
+Repo --> S : Optional.empty()
+deactivate Repo
+
+S -> M : toEntity(CreateUserDTO)
+activate M
+M --> S : User (entité)
+deactivate M
+
+S -> Repo : persist(user)
+activate Repo
+Repo -> DB : INSERT INTO discord_user …
+DB --> Repo : OK (id généré)
+Repo --> S : User (persisté)
+deactivate Repo
+
+S -> M : toDTO(User)
+activate M
+M --> S : UserDTO
+deactivate M
+
+I -> I : ✅ log exit (durée ms)
+deactivate I
+
+S --> R : UserDTO
+deactivate S
+
+R --> C : HTTP 201 Created\n+ UserDTO (JSON)
+deactivate R
+
+== Cas d'erreur : email dupliqué ==
+
+C -> R : POST /api/users\n(email existant)
+activate R
+R -> S : createUser(dto)
+activate S
+
+I -> I : ➡ log entry
+activate I #FFF9C4
+
+S -> Repo : findByEmail(email)
+activate Repo
+Repo -> DB : SELECT …
+DB --> Repo : User existant
+Repo --> S : Optional.of(user)
+deactivate Repo
+
+I -> I : ❌ log error
+deactivate I
+
+S --> R : throw BusinessException
+deactivate S
+
+R -> R : GlobalExceptionHandler
+R --> C : HTTP 422\n+ ErrorResponse (JSON)
+deactivate R
+
+@enduml

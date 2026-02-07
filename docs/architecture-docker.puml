@@ -1,0 +1,88 @@
+@startuml Architecture Docker — BotDiscord
+
+!define CONTAINER rectangle
+!define SERVICE rectangle
+
+skinparam backgroundColor #FEFEFE
+skinparam rectangle {
+    roundCorner 10
+}
+skinparam note {
+    BackgroundColor #FFFDE7
+}
+
+title Architecture de déploiement — docker-compose.full.yml
+
+cloud "Discord API" as discord #E8EAF6
+
+actor "Client HTTP" as client
+
+' ─── Réseau Docker ────────────────────────────────────────────
+frame "discord-bot-network (bridge)" as net {
+
+    database "PostgreSQL 16\n(db)" as db #BBDEFB {
+        note right
+            Port: <b>5432</b>
+            Volume: botdiscord-pgdata
+            Healthcheck: pg_isready
+        end note
+    }
+
+    node "Quarkus REST API\n(app)" as app #C8E6C9 {
+        note right
+            Port: <b>8080</b>
+            Dockerfile: <i>runtime</i> stage
+            JRE 21 (non-root)
+            Healthcheck: /q/health/ready
+        end note
+    }
+
+    node "ThrasherBot\n(bot)" as bot #FFE0B2 {
+        note right
+            Dockerfile: <i>bot</i> stage
+            Discord4J réactif
+            Env: DISCORD_TOKEN
+        end note
+    }
+
+    node "Ollama LLM\n(ollama)" as ollama #E1BEE7 {
+        note right
+            Port: <b>11434</b>
+            GPU NVIDIA
+            Modèle: llama3:8b
+        end note
+    }
+
+    node "Ollama Pull\n(init)" as pull #EDE7F6 {
+        note right
+            Init container
+            Pull modèle si absent
+            restart: "no"
+        end note
+    }
+}
+
+' ─── Relations ────────────────────────────────────────────────
+client --> app : REST\n(JSON)
+app --> db   : JDBC\n(port 5432)
+bot --> app  : HTTP\n/api/*
+bot --> db   : JDBC
+bot --> discord : WebSocket\n+ REST
+bot --> ollama : HTTP\n(port 11434)
+pull --> ollama : pull\nllama3:8b
+
+' ─── Dépendances de démarrage ─────────────────────────────────
+app ..> db : depends_on\n(healthy)
+app ..> ollama : depends_on\n(healthy)
+bot ..> app : depends_on\n(healthy)
+bot ..> pull : depends_on\n(completed)
+
+' ─── Légende ──────────────────────────────────────────────────
+legend bottom left
+    <b>Variantes de déploiement :</b>
+    • <b>docker-compose.dev.yml</b> — db + app (dev mode + hot‑reload)
+    • <b>docker-compose.prod.yml</b> — db + app (JRE) + pgadmin (optionnel)
+    • <b>docker-compose.full.yml</b> — db + app + bot + ollama (complet)
+end legend
+
+@enduml
