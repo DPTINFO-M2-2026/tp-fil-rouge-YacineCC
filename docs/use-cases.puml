@@ -44,21 +44,19 @@ restclient --> UC_MESSAGE
 
 ' ─── Bot Discord ─────────────────────────────────────────────
 package "Bot Discord (ThrasherBot)" {
-    usecase "Envoyer un message\n(!thrasher, !quote)" as UC_BOT_MSG
-    usecase "Scanner et synchroniser\nle serveur Discord" as UC_BOT_SCAN
-    usecase "Analyser un message\nvia IA (!analyze)" as UC_BOT_AI
-    usecase "Créer une guilde\navec canaux par défaut" as UC_BOT_GUILD
-    usecase "Gérer les membres\n(ajout, rôles)" as UC_BOT_MEMBER
-    usecase "Supprimer un message\n(avec vérification\nde permissions)" as UC_BOT_DELETE
-    usecase "Afficher les infos\nserveur (!serverinfo)" as UC_BOT_INFO
+    usecase "Envoyer une réponse\nskate (!thrasher)" as UC_BOT_MSG
+    usecase "Scanner et synchroniser\nle serveur Discord\n(!admin scan)" as UC_BOT_SCAN
+    usecase "Poser une question\nau LLM (/ask, /analyze)" as UC_BOT_AI
+    usecase "Créer une guilde\navec canaux par défaut\n(!admin createGuild)" as UC_BOT_GUILD
+    usecase "Gérer les rôles\nd'un utilisateur\n(!admin role)" as UC_BOT_ROLE
+    usecase "Supprimer un message\navec vérification\nde permissions\n(!admin delete)" as UC_BOT_DELETE
 }
 
 user --> UC_BOT_MSG
 user --> UC_BOT_AI
-user --> UC_BOT_INFO
 admin --> UC_BOT_SCAN
 admin --> UC_BOT_GUILD
-admin --> UC_BOT_MEMBER
+admin --> UC_BOT_ROLE
 admin --> UC_BOT_DELETE
 
 ' ─── Relations ────────────────────────────────────────────────
@@ -68,10 +66,10 @@ UC_BOT_SCAN ..> UC_CHANNEL : <<include>>\nsync channels
 UC_BOT_SCAN ..> UC_MESSAGE : <<include>>\nsync messages
 
 UC_BOT_GUILD ..> UC_GUILD : <<include>>
-UC_BOT_MEMBER ..> UC_ROLE : <<include>>
+UC_BOT_ROLE ..> UC_ROLE : <<include>>
 UC_BOT_DELETE ..> UC_MESSAGE : <<include>>
 
-UC_BOT_AI ..> (Ollama LLM) : <<include>>\nappel IA
+UC_BOT_AI ..> (Ollama LLM) : <<include>>\nappel IA locale
 
 ' ─── Notes ────────────────────────────────────────────────────
 note bottom of UC_BOT_SCAN
@@ -85,6 +83,12 @@ note right of UC_BOT_DELETE
     Vérification des permissions :
     owner de la guilde OU rôle avec
     canManageMessages = true
+end note
+
+note bottom of UC_BOT_GUILD
+    Crée automatiquement :
+    - 3 canaux (general, announcements, voice)
+    - 2 rôles (Admin, Member)
 end note
 
 @enduml
