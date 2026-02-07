@@ -231,4 +231,109 @@ class DiscordBotServiceMockTest {
         assertThrows(SecurityException.class, () -> discordBotService.deleteMessage(500L, 200L));
         verify(messageRepository, never()).persist((Message) any());
     }
+
+    /**
+     * Vérifie qu'un modérateur (canManageMessages) peut supprimer le message d'un autre.
+     */
+    @Test
+    void deleteMessage_allowsModeratorWithManagePermission() {
+        User author = new User();
+        author.id = 100L;
+
+        User moderator = new User();
+        moderator.id = 200L;
+        moderator.roles = new HashSet<>();
+
+        User owner = new User();
+        owner.id = 999L;
+
+        Guild guild = new Guild();
+        guild.owner = owner;
+
+        Role modRole = new Role();
+        modRole.guild = guild;
+        modRole.canManageMessages = true;
+        moderator.roles.add(modRole);
+
+        Channel channel = new Channel();
+        channel.guild = guild;
+
+        Message message = new Message();
+        message.id = 600L;
+        message.author = author;
+        message.channel = channel;
+        message.isDeleted = false;
+
+        when(messageRepository.findById(600L)).thenReturn(message);
+        when(userRepository.findById(200L)).thenReturn(moderator);
+
+        discordBotService.deleteMessage(600L, 200L);
+
+        assertTrue(message.isDeleted);
+        verify(messageRepository).persist(message);
+    }
+
+    /**
+     * Vérifie que deleteMessage lève IllegalArgumentException si le message n'existe pas.
+     */
+    @Test
+    void deleteMessage_throwsWhenMessageNotFound() {
+        when(messageRepository.findById(9999L)).thenReturn(null);
+        when(userRepository.findById(100L)).thenReturn(new User());
+
+        assertThrows(IllegalArgumentException.class,
+                () -> discordBotService.deleteMessage(9999L, 100L));
+    }
+
+    /**
+     * Vérifie l'ajout d'un utilisateur à une guilde.
+     */
+    @Test
+    void addUserToGuild_addsUserAndAssignsDefaultRole() {
+        User user = new User();
+        user.id = 50L;
+
+        Guild guild = new Guild();
+        guild.id = 10L;
+        guild.members = new HashSet<>();
+
+        Role memberRole = new Role();
+        memberRole.name = "Member";
+        memberRole.users = new HashSet<>();
+
+        when(userRepository.findById(50L)).thenReturn(user);
+        when(guildRepository.findById(10L)).thenReturn(guild);
+        when(roleRepository.findMemberRole(guild)).thenReturn(memberRole);
+
+        discordBotService.addUserToGuild(50L, 10L);
+
+        assertTrue(guild.members.contains(user));
+        assertTrue(memberRole.users.contains(user));
+        verify(guildRepository).persist(guild);
+        verify(roleRepository).persist(memberRole);
+    }
+
+    /**
+     * Vérifie que addUserToGuild lève une exception si l'utilisateur est introuvable.
+     */
+    @Test
+    void addUserToGuild_throwsWhenUserNotFound() {
+        when(userRepository.findById(9999L)).thenReturn(null);
+        when(guildRepository.findById(10L)).thenReturn(new Guild());
+
+        assertThrows(IllegalArgumentException.class,
+                () -> discordBotService.addUserToGuild(9999L, 10L));
+    }
+
+    /**
+     * Vérifie que addUserToGuild lève une exception si la guilde est introuvable.
+     */
+    @Test
+    void addUserToGuild_throwsWhenGuildNotFound() {
+        when(userRepository.findById(50L)).thenReturn(new User());
+        when(guildRepository.findById(9999L)).thenReturn(null);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> discordBotService.addUserToGuild(50L, 9999L));
+    }
 }

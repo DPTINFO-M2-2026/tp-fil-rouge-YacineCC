@@ -172,4 +172,49 @@ class BotResourceTest {
                 .contentType(ContentType.JSON)
                 .body("error", containsString("not found"));
     }
+
+    /**
+     * Vérifie que la suppression d'un message par un utilisateur sans permission retourne 403.
+     * User 103 est membre de guild 201 mais PAS de guild 200 (où se trouve le message 501).
+     */
+    @Test
+    void testDeleteMessageForbidden() {
+        given()
+                .queryParam("requesterId", 103)
+                .when().delete("/api/bot/messages/501")
+                .then()
+                .statusCode(403)
+                .contentType(ContentType.JSON)
+                .body("error", containsString("permission"));
+    }
+
+    /**
+     * Vérifie qu'un modérateur (rôle canManageMessages) peut supprimer le message d'un autre utilisateur.
+     * User 100 a le rôle 400 (Test Admin, canManageMessages=true) dans guild 200.
+     * Message 501 est de user 101 dans channel 300 (guild 200).
+     */
+    @Test
+    void testDeleteMessageByModerator() {
+        given()
+                .queryParam("requesterId", 100)
+                .when().delete("/api/bot/messages/501")
+                .then()
+                .statusCode(200)
+                .contentType(ContentType.JSON)
+                .body("message", containsString("successfully"));
+    }
+
+    /**
+     * Vérifie l'ajout d'un membre à une guilde avec des IDs valides.
+     * User 103 n'est pas membre de guild 200 → on l'ajoute.
+     */
+    @Test
+    void testAddUserToGuildSuccess() {
+        given()
+                .when().post("/api/bot/guilds/200/members/103")
+                .then()
+                .statusCode(200)
+                .contentType(ContentType.JSON)
+                .body("message", containsString("successfully"));
+    }
 }

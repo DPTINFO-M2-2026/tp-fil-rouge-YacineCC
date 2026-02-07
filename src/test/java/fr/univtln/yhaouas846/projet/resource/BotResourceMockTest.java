@@ -10,6 +10,8 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.doNothing;
 
 /**
  * Test Quarkus + Mockito: BotResource avec service mocké.
@@ -88,5 +90,83 @@ class BotResourceMockTest {
 
         // Vérifier que le service a été appelé
         verify(discordBotService).sendMessage(1L, 1L, "Unauthorized message");
+    }
+
+    /**
+     * Vérifie que DELETE /api/bot/messages/{id} retourne 403 quand le service lève SecurityException.
+     */
+    @Test
+    void testDeleteMessageForbiddenWithMock() {
+        doThrow(new SecurityException("User doesn't have permission to delete this message"))
+                .when(discordBotService).deleteMessage(eq(500L), eq(999L));
+
+        given()
+                .queryParam("requesterId", 999)
+                .when().delete("/api/bot/messages/500")
+                .then()
+                .statusCode(403)
+                .contentType(ContentType.JSON)
+                .body("error", containsString("permission"));
+
+        verify(discordBotService).deleteMessage(500L, 999L);
+    }
+
+    /**
+     * Vérifie que DELETE /api/bot/messages/{id} retourne 200 en cas de succès.
+     */
+    @Test
+    void testDeleteMessageSuccessWithMock() {
+        doNothing().when(discordBotService).deleteMessage(eq(500L), eq(100L));
+
+        given()
+                .queryParam("requesterId", 100)
+                .when().delete("/api/bot/messages/500")
+                .then()
+                .statusCode(200)
+                .contentType(ContentType.JSON)
+                .body("message", containsString("successfully"));
+
+        verify(discordBotService).deleteMessage(500L, 100L);
+    }
+
+    /**
+     * Vérifie que POST /api/bot/guilds/{guildId}/members/{userId} délègue au service.
+     */
+    @Test
+    void testAddUserToGuildWithMock() {
+        doNothing().when(discordBotService).addUserToGuild(eq(50L), eq(200L));
+
+        given()
+                .when().post("/api/bot/guilds/200/members/50")
+                .then()
+                .statusCode(200)
+                .contentType(ContentType.JSON)
+                .body("message", containsString("successfully"));
+
+        verify(discordBotService).addUserToGuild(50L, 200L);
+    }
+
+    /**
+     * Vérifie que POST /api/bot/guilds crée une guilde via le service mocké.
+     */
+    @Test
+    void testCreateGuildWithMock() {
+        fr.univtln.yhaouas846.projet.entity.Guild mockGuild = new fr.univtln.yhaouas846.projet.entity.Guild();
+        mockGuild.id = 999L;
+        mockGuild.name = "Mock Guild";
+
+        when(discordBotService.createGuildWithDefaultChannels(eq("Mock Guild"), eq("owner")))
+                .thenReturn(mockGuild);
+
+        given()
+                .queryParam("name", "Mock Guild")
+                .queryParam("owner", "owner")
+                .when().post("/api/bot/guilds")
+                .then()
+                .statusCode(201)
+                .contentType(ContentType.JSON)
+                .body("name", equalTo("Mock Guild"));
+
+        verify(discordBotService).createGuildWithDefaultChannels("Mock Guild", "owner");
     }
 }
