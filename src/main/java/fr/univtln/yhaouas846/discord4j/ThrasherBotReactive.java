@@ -193,6 +193,24 @@ public class ThrasherBotReactive {
                 }
             }
 
+            // !admin createGuild <nom>
+            if (content.startsWith("!admin createGuild ")) {
+                String guildName = content.substring(18).trim();
+                String ownerUsername = message.getAuthor().map(User::getUsername).orElse("unknown");
+                return handleCreateGuild(message, guildName, ownerUsername);
+            }
+
+            // !admin delete <messageId>
+            if (content.startsWith("!admin delete ")) {
+                String msgIdStr = content.substring(14).trim();
+                return handleDeleteMessage(message, msgIdStr);
+            }
+
+            // !admin role <add|remove> <@user> <roleName>
+            if (content.startsWith("!admin role ")) {
+                return handleRoleCommand(message, content.substring(12).trim());
+            }
+
             return Mono.empty();
         }).subscribe();
 
@@ -293,9 +311,13 @@ public class ThrasherBotReactive {
                 
                 **Commandes Admin :**
                 `!admin scan` - Scanne manuellement le serveur et sauvegarde les données
+                `!admin createGuild <nom>` - Crée une guilde avec canaux et rôles par défaut
+                `!admin delete <messageId>` - Supprime un message (avec vérif de permissions)
+                `!admin role add <@user> <rôle>` - Assigne un rôle à un utilisateur
+                `!admin role remove <@user> <rôle>` - Retire un rôle d'un utilisateur
                 
                 **Scan automatique :** 🔄
-                Le bot scanne automatiquement tous les serveurs toutes les 5 minutes
+                Le bot scanne automatiquement tous les serveurs toutes les 5 secondes
                 pour persister: Users, Guilds, Channels, Roles et Messages dans la DB.
                 
                 **Commandes LLM :**
@@ -780,6 +802,157 @@ public class ThrasherBotReactive {
                     .doOnError(e -> System.err.println("❌ Erreur message: " + e.getMessage()))
                     .then();
         });
+    }
+
+    // ─── Commande !admin createGuild ─────────────────────────────────────────
+
+    /**
+     * Crée une guilde avec canaux et rôles par défaut via l'API REST.
+     */
+    private static Mono<Void> handleCreateGuild(Message message, String guildName, String ownerUsername) {
+        return message.getChannel()
+                .flatMap(ch -> ch.createMessage("⏳ Création de la guilde **" + guildName + "**..."))
+                .then(Mono.fromCallable(() -> {
+                    String url = API_URL + "/bot/guilds?name=" +
+                            java.net.URLEncoder.encode(guildName, java.nio.charset.StandardCharsets.UTF_8) +
+                            "&owner=" + java.net.URLEncoder.encode(ownerUsername, java.nio.charset.StandardCharsets.UTF_8);
+                    HttpRequest request = HttpRequest.newBuilder()
+                            .uri(URI.create(url))
+                            .header("Content-Type", "application/json")
+                            .POST(HttpRequest.BodyPublishers.noBody())
+                            .build();
+                    HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+                    if (response.statusCode() >= 400) {
+                        throw new RuntimeException(objectMapper.readTree(response.body()).path("error").asText("Erreur inconnue"));
+                    }
+                    return objectMapper.readTree(response.body());
+                }).subscribeOn(Schedulers.boundedElastic()))
+                .flatMap(json -> message.getChannel().flatMap(ch ->
+                        ch.createMessage("✅ Guilde **" + json.path("name").asText() + "** créée !\n" +
+                                "📂 Canaux par défaut : general, announcements, General Voice\n" +
+                                "🎭 Rôles par défaut : Admin, Member")))
+                .then()
+                .onErrorResume(e -> message.getChannel()
+                        .flatMap(ch -> ch.createMessage("❌ Erreur : " + e.getMessage())).then());
+    }
+
+    // ─── Commande !admin delete ──────────────────────────────────────────────
+
+    /**
+     * Supprime un message via l'API REST avec vérification des permissions.
+     * L'utilisateur doit être l'auteur du message ou avoir le rôle canManageMessages.
+     */
+    private static Mono<Void> handleDeleteMessage(Message message, String messageIdStr) {
+        return message.getAuthor()
+                .map(author -> {
+                    Long requesterId = userMap.get(author.getId());
+                    if (requesterId == null) {
+                        return message.getChannel()
+                                .flatMap(ch -> ch.createMessage("❌ Utilisateur non synchronisé. Lancez d'abord `!admin scan`."))
+                                .then();
+                    }
+                    return Mono.fromCallable(() -> {
+                        String url = API_URL + "/bot/messages/" + messageIdStr + "?requesterId=" + requesterId;
+                        HttpRequest request = HttpRequest.newBuilder()
+                                .uri(URI.create(url))
+                                .DELETE()
+                                .build();
+                        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+                        if (response.statusCode() == 403) {
+                            throw new SecurityException(objectMapper.readTree(response.body()).path("error").asText("Permission refusée"));
+                        }
+                        if (response.statusCode() >= 400) {
+                            throw new RuntimeException(objectMapper.readTree(response.body()).path("error").asText("Erreur"));
+                        }
+                        return response.body();
+                    }).subscribeOn(Schedulers.boundedElastic())
+                    .flatMap(body -> message.getChannel()
+                            .flatMap(ch -> ch.createMessage("✅ Message #" + messageIdStr + " supprimé.")))
+                    .then()
+                    .onErrorResume(SecurityException.class, e -> message.getChannel()
+                            .flatMap(ch -> ch.createMessage("🚫 Permission refusée : " + e.getMessage())).then())
+                    .onErrorResume(e -> message.getChannel()
+                            .flatMap(ch -> ch.createMessage("❌ Erreur : " + e.getMessage())).then());
+                })
+                .orElse(Mono.empty());
+    }
+
+    // ─── Commande !admin role ────────────────────────────────────────────────
+
+    /**
+     * Gère l'assignation et le retrait de rôles via l'API REST.
+     * Syntaxe : {@code !admin role add @user <roleName>} ou {@code !admin role remove @user <roleName>}
+     */
+    private static Mono<Void> handleRoleCommand(Message message, String args) {
+        String[] parts = args.split("\\s+", 3);
+        if (parts.length < 3) {
+            return message.getChannel()
+                    .flatMap(ch -> ch.createMessage("❌ Usage : `!admin role <add|remove> <@user> <rôle>`"))
+                    .then();
+        }
+
+        String action = parts[0].toLowerCase();
+        if (!action.equals("add") && !action.equals("remove")) {
+            return message.getChannel()
+                    .flatMap(ch -> ch.createMessage("❌ Action invalide. Utilisez `add` ou `remove`."))
+                    .then();
+        }
+
+        // Extraction de l'ID utilisateur depuis la mention <@123456>
+        String mention = parts[1];
+        String userIdStr = mention.replaceAll("[<@!>]", "");
+        String roleName = parts[2];
+
+        return Mono.fromCallable(() -> {
+            // Chercher l'utilisateur DB via le discordId
+            Snowflake discordUserId = Snowflake.of(userIdStr);
+            Long dbUserId = userMap.get(discordUserId);
+            if (dbUserId == null) {
+                throw new IllegalStateException("Utilisateur non synchronisé. Lancez `!admin scan` d'abord.");
+            }
+
+            // Chercher le rôle par nom dans les rôles de la guilde
+            String rolesUrl = API_URL + "/roles";
+            HttpRequest rolesRequest = HttpRequest.newBuilder()
+                    .uri(URI.create(rolesUrl))
+                    .GET()
+                    .build();
+            HttpResponse<String> rolesResp = httpClient.send(rolesRequest, HttpResponse.BodyHandlers.ofString());
+            JsonNode roles = objectMapper.readTree(rolesResp.body());
+
+            Long roleId = null;
+            for (JsonNode role : roles) {
+                if (role.path("name").asText().equalsIgnoreCase(roleName)) {
+                    roleId = role.path("id").asLong();
+                    break;
+                }
+            }
+            if (roleId == null) {
+                throw new IllegalStateException("Rôle '" + roleName + "' introuvable.");
+            }
+
+            // POST ou DELETE /api/roles/{roleId}/users/{userId}
+            String url = API_URL + "/roles/" + roleId + "/users/" + dbUserId;
+            HttpRequest.Builder builder = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("Content-Type", "application/json");
+            HttpRequest request = action.equals("add")
+                    ? builder.POST(HttpRequest.BodyPublishers.noBody()).build()
+                    : builder.DELETE().build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() >= 400) {
+                throw new RuntimeException("Erreur API (" + response.statusCode() + ")");
+            }
+
+            return action.equals("add")
+                    ? "✅ Rôle **" + roleName + "** assigné à <@" + userIdStr + ">"
+                    : "✅ Rôle **" + roleName + "** retiré de <@" + userIdStr + ">";
+        }).subscribeOn(Schedulers.boundedElastic())
+        .flatMap(msg -> message.getChannel().flatMap(ch -> ch.createMessage(msg)))
+        .then()
+        .onErrorResume(e -> message.getChannel()
+                .flatMap(ch -> ch.createMessage("❌ " + e.getMessage())).then());
     }
 
     /**
