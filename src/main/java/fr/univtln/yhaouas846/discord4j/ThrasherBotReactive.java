@@ -81,8 +81,8 @@ public class ThrasherBotReactive {
     private static final Map<Snowflake, Long> guildMap = new HashMap<>();
     private static final Map<Snowflake, Long> channelMap = new HashMap<>();
     
-    // Configuration du scan automatique (5 sec pour tests)
-    private static final int SCAN_INTERVAL_SECONDS = 5;
+    // Configuration du scan automatique (60 sec pour ne pas bloquer les commandes)
+    private static final int SCAN_INTERVAL_SECONDS = 60;
 
     /**
      * Point d'entrée du bot : connexion à Discord, enregistrement des handlers et blocage
@@ -195,7 +195,8 @@ public class ThrasherBotReactive {
 
             // !admin createGuild <nom>
             if (content.startsWith("!admin createGuild ")) {
-                String guildName = content.substring(18).trim();
+                String guildName = content.substring(19).trim();
+                System.out.println("🔧 [ADMIN] createGuild demandé: '" + guildName + "' par " + message.getAuthor().map(User::getUsername).orElse("?"));
                 String ownerUsername = message.getAuthor().map(User::getUsername).orElse("unknown");
                 return handleCreateGuild(message, guildName, ownerUsername);
             }
@@ -203,11 +204,13 @@ public class ThrasherBotReactive {
             // !admin delete <messageId>
             if (content.startsWith("!admin delete ")) {
                 String msgIdStr = content.substring(14).trim();
+                System.out.println("🔧 [ADMIN] delete demandé: messageId=" + msgIdStr + " par " + message.getAuthor().map(User::getUsername).orElse("?"));
                 return handleDeleteMessage(message, msgIdStr);
             }
 
             // !admin role <add|remove> <@user> <roleName>
             if (content.startsWith("!admin role ")) {
+                System.out.println("🔧 [ADMIN] role demandé: '" + content.substring(12).trim() + "' par " + message.getAuthor().map(User::getUsername).orElse("?"));
                 return handleRoleCommand(message, content.substring(12).trim());
             }
 
@@ -580,7 +583,7 @@ public class ThrasherBotReactive {
                                                         return textChannel.getLastMessageId()
                                                                 .map(lastMsgId -> textChannel.getMessagesBefore(lastMsgId))
                                                                 .orElse(reactor.core.publisher.Flux.empty()) // Pas de messages si pas de dernier message
-                                                                .take(500) // Récupère beaucoup de messages pour avoir assez par auteur
+                                                                .take(100) // Limite réduite pour éviter de bloquer les commandes
                                                                 .collectList()
                                                                 .doOnNext(messages -> System.out.println("  📥 " + messages.size() + " messages récupérés"))
                                                                 .flatMapMany(messages -> {
@@ -816,12 +819,14 @@ public class ThrasherBotReactive {
                     String url = API_URL + "/bot/guilds?name=" +
                             java.net.URLEncoder.encode(guildName, java.nio.charset.StandardCharsets.UTF_8) +
                             "&owner=" + java.net.URLEncoder.encode(ownerUsername, java.nio.charset.StandardCharsets.UTF_8);
+                    System.out.println("🔧 [ADMIN] Appel API: POST " + url);
                     HttpRequest request = HttpRequest.newBuilder()
                             .uri(URI.create(url))
                             .header("Content-Type", "application/json")
                             .POST(HttpRequest.BodyPublishers.noBody())
                             .build();
                     HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+                    System.out.println("🔧 [ADMIN] Réponse API: " + response.statusCode() + " - " + response.body().substring(0, Math.min(200, response.body().length())));
                     if (response.statusCode() >= 400) {
                         throw new RuntimeException(objectMapper.readTree(response.body()).path("error").asText("Erreur inconnue"));
                     }
@@ -832,8 +837,12 @@ public class ThrasherBotReactive {
                                 "📂 Canaux par défaut : general, announcements, General Voice\n" +
                                 "🎭 Rôles par défaut : Admin, Member")))
                 .then()
-                .onErrorResume(e -> message.getChannel()
-                        .flatMap(ch -> ch.createMessage("❌ Erreur : " + e.getMessage())).then());
+                .onErrorResume(e -> {
+                    System.err.println("🔧 [ADMIN] ERREUR createGuild: " + e.getClass().getName() + " - " + e.getMessage());
+                    e.printStackTrace();
+                    return message.getChannel()
+                            .flatMap(ch -> ch.createMessage("❌ Erreur : " + e.getMessage())).then();
+                });
     }
 
     // ─── Commande !admin delete ──────────────────────────────────────────────
