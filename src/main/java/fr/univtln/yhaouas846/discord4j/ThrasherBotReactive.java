@@ -912,6 +912,14 @@ public class ThrasherBotReactive {
         String userIdStr = mention.replaceAll("[<@!>]", "");
         String roleName = parts[2];
 
+        // Récupérer l'ID DB de la guilde depuis le message
+        Snowflake discordGuildId = message.getGuildId().orElse(null);
+        if (discordGuildId == null) {
+            return message.getChannel()
+                    .flatMap(ch -> ch.createMessage("❌ Cette commande doit être utilisée dans un serveur."))
+                    .then();
+        }
+
         return Mono.fromCallable(() -> {
             // Chercher l'utilisateur DB via le discordId
             Snowflake discordUserId = Snowflake.of(userIdStr);
@@ -920,13 +928,21 @@ public class ThrasherBotReactive {
                 throw new IllegalStateException("Utilisateur non synchronisé. Lancez `!admin scan` d'abord.");
             }
 
-            // Chercher le rôle par nom dans les rôles de la guilde
-            String rolesUrl = API_URL + "/roles";
+            // Récupérer l'ID DB de la guilde
+            Long dbGuildId = guildMap.get(discordGuildId);
+            if (dbGuildId == null) {
+                throw new IllegalStateException("Guilde non synchronisée. Lancez `!admin scan` d'abord.");
+            }
+
+            // Chercher le rôle par nom DANS la guilde (pas globalement)
+            String rolesUrl = API_URL + "/roles/guild/" + dbGuildId;
+            System.out.println("🔧 [ADMIN] Recherche rôle '" + roleName + "' dans guilde DB#" + dbGuildId + " : GET " + rolesUrl);
             HttpRequest rolesRequest = HttpRequest.newBuilder()
                     .uri(URI.create(rolesUrl))
                     .GET()
                     .build();
             HttpResponse<String> rolesResp = httpClient.send(rolesRequest, HttpResponse.BodyHandlers.ofString());
+            System.out.println("🔧 [ADMIN] Réponse rôles: " + rolesResp.statusCode() + " (" + rolesResp.body().length() + " chars)");
             JsonNode roles = objectMapper.readTree(rolesResp.body());
 
             Long roleId = null;
@@ -937,11 +953,12 @@ public class ThrasherBotReactive {
                 }
             }
             if (roleId == null) {
-                throw new IllegalStateException("Rôle '" + roleName + "' introuvable.");
+                throw new IllegalStateException("Rôle '" + roleName + "' introuvable dans cette guilde.");
             }
 
             // POST ou DELETE /api/roles/{roleId}/users/{userId}
             String url = API_URL + "/roles/" + roleId + "/users/" + dbUserId;
+            System.out.println("🔧 [ADMIN] " + action.toUpperCase() + " rôle: " + url);
             HttpRequest.Builder builder = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("Content-Type", "application/json");
@@ -950,8 +967,9 @@ public class ThrasherBotReactive {
                     : builder.DELETE().build();
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            System.out.println("🔧 [ADMIN] Réponse role " + action + ": " + response.statusCode());
             if (response.statusCode() >= 400) {
-                throw new RuntimeException("Erreur API (" + response.statusCode() + ")");
+                throw new RuntimeException("Erreur API (" + response.statusCode() + "): " + response.body());
             }
 
             return action.equals("add")
@@ -960,8 +978,11 @@ public class ThrasherBotReactive {
         }).subscribeOn(Schedulers.boundedElastic())
         .flatMap(msg -> message.getChannel().flatMap(ch -> ch.createMessage(msg)))
         .then()
-        .onErrorResume(e -> message.getChannel()
-                .flatMap(ch -> ch.createMessage("❌ " + e.getMessage())).then());
+        .onErrorResume(e -> {
+            System.err.println("🔧 [ADMIN] ERREUR role: " + e.getClass().getName() + " - " + e.getMessage());
+            return message.getChannel()
+                    .flatMap(ch -> ch.createMessage("❌ " + e.getMessage())).then();
+        });
     }
 
     /**
