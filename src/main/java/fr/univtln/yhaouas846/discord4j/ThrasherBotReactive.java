@@ -14,9 +14,14 @@ import discord4j.core.object.entity.User;
 import discord4j.core.object.entity.channel.Channel;
 import discord4j.core.object.entity.channel.GuildChannel;
 import discord4j.core.object.entity.channel.TextChannel;
+import discord4j.core.object.entity.Member;
+import discord4j.core.spec.BanQuerySpec;
 import discord4j.core.spec.MessageCreateSpec;
 import discord4j.gateway.intent.IntentSet;
 import discord4j.rest.util.Image;
+import discord4j.rest.util.Permission;
+import discord4j.rest.util.PermissionSet;
+import discord4j.core.object.PermissionOverwrite;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
@@ -56,6 +61,13 @@ import java.util.Random;
  *   <li>{@code !thrasher hellbomb} : poste une vidéo aléatoire</li>
  *   <li>{@code !thrasher help} : affiche l'aide</li>
  *   <li>{@code !admin scan} : scanne le serveur courant et pousse users/guild/channels/messages vers l'API</li>
+ *   <li>{@code !admin createGuild <nom>} : crée une guilde avec canaux et rôles par défaut</li>
+ *   <li>{@code !admin delete <id>} : supprime un message (BDD + Discord)</li>
+ *   <li>{@code !admin role add|remove <@user> <rôle>} : gestion des rôles (BDD + Discord)</li>
+ *   <li>{@code !admin mute|unmute <@user>} : restreint/rétablit l'envoi de messages</li>
+ *   <li>{@code !admin nick <@user> <pseudo>} : change le pseudo d'un membre</li>
+ *   <li>{@code !admin ban <@user> [raison]} : bannit un utilisateur</li>
+ *   <li>{@code !admin unban <userId>} : débannit un utilisateur</li>
  *   <li>{@code /ask ...} / {@code /translate ...} : délégation LLM</li>
  * </ul>
  *
@@ -214,6 +226,41 @@ public class ThrasherBotReactive {
                 return handleRoleCommand(message, content.substring(12).trim());
             }
 
+            // !admin mute <@user> — restreint l'envoi de messages dans le channel courant
+            if (content.startsWith("!admin mute ")) {
+                String userMention = content.substring(12).trim().replaceAll("[<@!>]", "");
+                System.out.println("🔧 [ADMIN] mute demandé: user=" + userMention + " par " + message.getAuthor().map(User::getUsername).orElse("?"));
+                return handleMuteCommand(message, userMention, true);
+            }
+
+            // !admin unmute <@user> — rétablit l'envoi de messages dans le channel courant
+            if (content.startsWith("!admin unmute ")) {
+                String userMention = content.substring(14).trim().replaceAll("[<@!>]", "");
+                System.out.println("🔧 [ADMIN] unmute demandé: user=" + userMention + " par " + message.getAuthor().map(User::getUsername).orElse("?"));
+                return handleMuteCommand(message, userMention, false);
+            }
+
+            // !admin nick <@user> <nouveau pseudo>
+            if (content.startsWith("!admin nick ")) {
+                String nickArgs = content.substring(12).trim();
+                System.out.println("🔧 [ADMIN] nick demandé: '" + nickArgs + "' par " + message.getAuthor().map(User::getUsername).orElse("?"));
+                return handleNickCommand(message, nickArgs);
+            }
+
+            // !admin ban <@user> [raison]
+            if (content.startsWith("!admin ban ")) {
+                String banArgs = content.substring(11).trim();
+                System.out.println("🔧 [ADMIN] ban demandé: '" + banArgs + "' par " + message.getAuthor().map(User::getUsername).orElse("?"));
+                return handleBanCommand(message, banArgs);
+            }
+
+            // !admin unban <userId>
+            if (content.startsWith("!admin unban ")) {
+                String userId = content.substring(13).trim().replaceAll("[<@!>]", "");
+                System.out.println("🔧 [ADMIN] unban demandé: user=" + userId + " par " + message.getAuthor().map(User::getUsername).orElse("?"));
+                return handleUnbanCommand(message, userId);
+            }
+
             return Mono.empty();
         }).subscribe();
 
@@ -312,15 +359,22 @@ public class ThrasherBotReactive {
                 `!thrasher hellbomb` - Poste une vidéo Hellbomb aléatoire
                 `!thrasher help` - Affiche ce message
                 
-                **Commandes Admin :**
-                `!admin scan` - Scanne manuellement le serveur et sauvegarde les données
+                **Commandes Admin (CRUD & Sync) :**
+                `!admin scan` - Scanne le serveur et synchronise vers la BDD
                 `!admin createGuild <nom>` - Crée une guilde avec canaux et rôles par défaut
-                `!admin delete <messageId>` - Supprime un message (avec vérif de permissions)
-                `!admin role add <@user> <rôle>` - Assigne un rôle à un utilisateur
-                `!admin role remove <@user> <rôle>` - Retire un rôle d'un utilisateur
+                `!admin delete <messageId>` - Supprime un message (BDD + Discord)
+                `!admin role add <@user> <rôle>` - Assigne un rôle (BDD + Discord)
+                `!admin role remove <@user> <rôle>` - Retire un rôle (BDD + Discord)
+                
+                **Commandes Admin (Modération Discord) :**
+                `!admin mute <@user>` - Mute un utilisateur dans le channel courant
+                `!admin unmute <@user>` - Unmute un utilisateur dans le channel courant
+                `!admin nick <@user> <pseudo>` - Change le pseudo d'un membre
+                `!admin ban <@user> [raison]` - Bannit un utilisateur du serveur
+                `!admin unban <userId>` - Débannit un utilisateur du serveur
                 
                 **Scan automatique :** 🔄
-                Le bot scanne automatiquement tous les serveurs toutes les 5 secondes
+                Le bot scanne automatiquement tous les serveurs toutes les 60 secondes
                 pour persister: Users, Guilds, Channels, Roles et Messages dans la DB.
                 
                 **Commandes LLM :**
@@ -1046,6 +1100,126 @@ public class ThrasherBotReactive {
             return message.getChannel()
                     .flatMap(ch -> ch.createMessage("❌ " + e.getMessage())).then();
         });
+    }
+
+    // ─── Commande !admin mute / unmute ───────────────────────────────────
+
+    /**
+     * Restreint (mute) ou rétablit (unmute) l'envoi de messages pour un utilisateur
+     * dans le channel courant via un {@link PermissionOverwrite}.
+     */
+    private static Mono<Void> handleMuteCommand(Message message, String userIdStr, boolean mute) {
+        Snowflake targetUserId = Snowflake.of(userIdStr);
+        String action = mute ? "mute" : "unmute";
+
+        return message.getChannel()
+                .ofType(TextChannel.class)
+                .flatMap(channel -> {
+                    if (mute) {
+                        // Deny SEND_MESSAGES pour cet utilisateur dans ce channel
+                        PermissionOverwrite overwrite = PermissionOverwrite.forMember(
+                                targetUserId,
+                                PermissionSet.none(),
+                                PermissionSet.of(Permission.SEND_MESSAGES)
+                        );
+                        return channel.addMemberOverwrite(targetUserId, overwrite)
+                                .then(channel.createMessage("🔇 <@" + userIdStr + "> a été **mute** dans ce channel."));
+                    } else {
+                        // Rétablir les permissions : allow SEND_MESSAGES, deny rien
+                        PermissionOverwrite overwrite = PermissionOverwrite.forMember(
+                                targetUserId,
+                                PermissionSet.of(Permission.SEND_MESSAGES),
+                                PermissionSet.none()
+                        );
+                        return channel.addMemberOverwrite(targetUserId, overwrite)
+                                .then(channel.createMessage("🔊 <@" + userIdStr + "> a été **unmute** dans ce channel."));
+                    }
+                })
+                .then()
+                .onErrorResume(e -> {
+                    System.err.println("🔧 [ADMIN] ERREUR " + action + ": " + e.getMessage());
+                    return message.getChannel()
+                            .flatMap(ch -> ch.createMessage("❌ Erreur " + action + " : " + e.getMessage())).then();
+                });
+    }
+
+    // ─── Commande !admin nick ────────────────────────────────────────────────
+
+    /**
+     * Change le pseudo (nickname) d'un membre sur le serveur Discord.
+     * Syntaxe : {@code !admin nick <@user> <nouveau pseudo>}
+     */
+    private static Mono<Void> handleNickCommand(Message message, String args) {
+        String[] parts = args.split("\\s+", 2);
+        if (parts.length < 2) {
+            return message.getChannel()
+                    .flatMap(ch -> ch.createMessage("❌ Usage : `!admin nick <@user> <nouveau pseudo>`"))
+                    .then();
+        }
+
+        String userIdStr = parts[0].replaceAll("[<@!>]", "");
+        String newNick = parts[1];
+        Snowflake targetUserId = Snowflake.of(userIdStr);
+
+        return message.getGuild()
+                .flatMap(guild -> guild.getMemberById(targetUserId))
+                .flatMap(member -> member.edit(spec -> spec.setNickname(newNick)))
+                .flatMap(member -> message.getChannel().flatMap(ch ->
+                        ch.createMessage("✅ Pseudo de <@" + userIdStr + "> changé en **" + newNick + "**")))
+                .then()
+                .onErrorResume(e -> {
+                    System.err.println("🔧 [ADMIN] ERREUR nick: " + e.getMessage());
+                    return message.getChannel()
+                            .flatMap(ch -> ch.createMessage("❌ Erreur nick : " + e.getMessage())).then();
+                });
+    }
+
+    // ─── Commande !admin ban ─────────────────────────────────────────────────
+
+    /**
+     * Bannit un utilisateur du serveur Discord.
+     * Syntaxe : {@code !admin ban <@user> [raison]}
+     */
+    private static Mono<Void> handleBanCommand(Message message, String args) {
+        String[] parts = args.split("\\s+", 2);
+        String userIdStr = parts[0].replaceAll("[<@!>]", "");
+        String reason = parts.length > 1 ? parts[1] : "Banni via !admin ban";
+        Snowflake targetUserId = Snowflake.of(userIdStr);
+
+        return message.getGuild()
+                .flatMap(guild -> guild.ban(targetUserId, BanQuerySpec.builder()
+                        .reason(reason)
+                        .deleteMessageSeconds(0)
+                        .build()))
+                .then(message.getChannel().flatMap(ch ->
+                        ch.createMessage("🔨 <@" + userIdStr + "> a été **banni** du serveur.\n📝 Raison : " + reason)))
+                .then()
+                .onErrorResume(e -> {
+                    System.err.println("🔧 [ADMIN] ERREUR ban: " + e.getMessage());
+                    return message.getChannel()
+                            .flatMap(ch -> ch.createMessage("❌ Erreur ban : " + e.getMessage())).then();
+                });
+    }
+
+    // ─── Commande !admin unban ───────────────────────────────────────────────
+
+    /**
+     * Débannit un utilisateur du serveur Discord.
+     * Syntaxe : {@code !admin unban <userId>}
+     */
+    private static Mono<Void> handleUnbanCommand(Message message, String userIdStr) {
+        Snowflake targetUserId = Snowflake.of(userIdStr);
+
+        return message.getGuild()
+                .flatMap(guild -> guild.unban(targetUserId))
+                .then(message.getChannel().flatMap(ch ->
+                        ch.createMessage("✅ <@" + userIdStr + "> a été **débanni** du serveur.")))
+                .then()
+                .onErrorResume(e -> {
+                    System.err.println("🔧 [ADMIN] ERREUR unban: " + e.getMessage());
+                    return message.getChannel()
+                            .flatMap(ch -> ch.createMessage("❌ Erreur unban : " + e.getMessage())).then();
+                });
     }
 
     /**
