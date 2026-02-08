@@ -1,9 +1,8 @@
 package fr.univtln.yhaouas846.projet.resource;
 
-import fr.univtln.yhaouas846.projet.entity.Role;
-import fr.univtln.yhaouas846.projet.entity.User;
-import fr.univtln.yhaouas846.projet.entity.Guild;
-import jakarta.transaction.Transactional;
+import fr.univtln.yhaouas846.projet.dto.*;
+import fr.univtln.yhaouas846.projet.service.RoleService;
+import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -13,9 +12,8 @@ import java.util.List;
 /**
  * Ressource REST de gestion des rôles (permissions) au sein d'une guilde.
  *
- * <p>Les rôles sont modélisés par l'entité {@link fr.univtln.yhaouas846.projet.entity.Role}.
- * En plus des opérations CRUD, cette ressource expose des endpoints pour affecter/retirer
- * un rôle à un utilisateur (via l'association {@code user_roles}).</p>
+ * <p>Cette ressource délègue la logique métier au {@link RoleService}
+ * et utilise des DTOs pour le contrat API.</p>
  *
  * <h2>Endpoints</h2>
  * <ul>
@@ -34,138 +32,81 @@ import java.util.List;
 @Consumes(MediaType.APPLICATION_JSON)
 public class RoleResource {
 
+    @Inject
+    RoleService roleService;
+
+    /**
+     * Liste tous les rôles.
+     */
     @GET
-    public List<Role> getAllRoles() {
-        return Role.listAll();
+    public List<RoleDTO> getAllRoles() {
+        return roleService.getAllRoles();
     }
 
+    /**
+     * Récupère un rôle par son identifiant.
+     */
     @GET
     @Path("/{id}")
-    public Response getRoleById(@PathParam("id") Long id) {
-        Role role = Role.findById(id);
-        if (role == null) {
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
-        return Response.ok(role).build();
+    public RoleDTO getRoleById(@PathParam("id") Long id) {
+        return roleService.getRoleById(id);
     }
 
+    /**
+     * Crée un rôle.
+     *
+     * @param dto données de création
+     * @return {@code 201} avec le DTO du rôle créé
+     */
     @POST
-    @Transactional
-    public Response createRole(@Valid Role role) {
-        try {
-            // Upsert : si discordId existe déjà, on met à jour
-            if (role.discordId != null) {
-                Role existingRole = Role.find("discordId", role.discordId).firstResult();
-                if (existingRole != null) {
-                    existingRole.name = role.name;
-                    existingRole.color = role.color;
-                    existingRole.position = role.position;
-                    existingRole.canManageChannels = role.canManageChannels;
-                    existingRole.canManageRoles = role.canManageRoles;
-                    existingRole.canManageMessages = role.canManageMessages;
-                    existingRole.canKickMembers = role.canKickMembers;
-                    existingRole.canBanMembers = role.canBanMembers;
-                    existingRole.canSendMessages = role.canSendMessages;
-                    existingRole.canReadMessages = role.canReadMessages;
-                    existingRole.persist();
-                    return Response.ok(existingRole).build();
-                }
-            }
-            role.persist();
-            return Response.status(Response.Status.CREATED).entity(role).build();
-        } catch (Exception e) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("Error creating role: " + e.getMessage())
-                    .build();
-        }
+    public Response createRole(@Valid CreateRoleDTO dto) {
+        RoleDTO created = roleService.createRole(dto);
+        return Response.status(Response.Status.CREATED).entity(created).build();
     }
 
+    /**
+     * Met à jour un rôle existant.
+     */
     @PUT
     @Path("/{id}")
-    @Transactional
-    public Response updateRole(@PathParam("id") Long id, @Valid Role updatedRole) {
-        Role role = Role.findById(id);
-        if (role == null) {
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
-        
-        role.name = updatedRole.name;
-        role.color = updatedRole.color;
-        role.position = updatedRole.position;
-        role.canManageChannels = updatedRole.canManageChannels;
-        role.canManageRoles = updatedRole.canManageRoles;
-        role.canManageMessages = updatedRole.canManageMessages;
-        role.canKickMembers = updatedRole.canKickMembers;
-        role.canBanMembers = updatedRole.canBanMembers;
-        role.canSendMessages = updatedRole.canSendMessages;
-        role.canReadMessages = updatedRole.canReadMessages;
-        
-        try {
-            role.persist();
-            return Response.ok(role).build();
-        } catch (Exception e) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("Error updating role: " + e.getMessage())
-                    .build();
-        }
+    public RoleDTO updateRole(@PathParam("id") Long id, @Valid CreateRoleDTO dto) {
+        return roleService.updateRole(id, dto);
     }
 
+    /**
+     * Supprime un rôle.
+     */
     @DELETE
     @Path("/{id}")
-    @Transactional
     public Response deleteRole(@PathParam("id") Long id) {
-        Role role = Role.findById(id);
-        if (role == null) {
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
-        
-        role.delete();
+        roleService.deleteRole(id);
         return Response.noContent().build();
     }
 
-    @GET
-    @Path("/guild/{guildId}")
     /**
      * Liste les rôles d'une guilde.
      *
      * @param guildId identifiant de la guilde
-     * @return {@code 200} avec la liste ou {@code 404} si la guilde est inconnue
+     * @return liste des rôles de la guilde
      */
-    public Response getRolesByGuild(@PathParam("guildId") Long guildId) {
-        Guild guild = Guild.findById(guildId);
-        if (guild == null) {
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
-        
-        List<Role> roles = Role.find("guild", guild).list();
-        return Response.ok(roles).build();
+    @GET
+    @Path("/guild/{guildId}")
+    public List<RoleDTO> getRolesByGuild(@PathParam("guildId") Long guildId) {
+        return roleService.getRolesByGuild(guildId);
     }
 
     /**
      * Assigne un rôle à un utilisateur.
      *
-     * <p>Cette opération ajoute l'utilisateur à l'ensemble {@link fr.univtln.yhaouas846.projet.entity.Role#users}
-     * puis persiste le rôle. La cohérence JPA dépend de la configuration de la relation et du contexte
-     * transactionnel.</p>
-     *
      * @param roleId identifiant du rôle
      * @param userId identifiant de l'utilisateur
-     * @return {@code 200} si succès, {@code 404} si rôle ou utilisateur absent
+     * @return {@code 200} si succès
      */
     @POST
     @Path("/{roleId}/users/{userId}")
-    @Transactional
+    @Consumes(MediaType.WILDCARD)
     public Response assignRoleToUser(@PathParam("roleId") Long roleId, @PathParam("userId") Long userId) {
-        Role role = Role.findById(roleId);
-        User user = User.findById(userId);
-        
-        if (role == null || user == null) {
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
-        
-        role.users.add(user);
-        role.persist();
-        
+        roleService.assignRoleToUser(roleId, userId);
         return Response.ok().build();
     }
 
@@ -174,22 +115,13 @@ public class RoleResource {
      *
      * @param roleId identifiant du rôle
      * @param userId identifiant de l'utilisateur
-     * @return {@code 200} si succès, {@code 404} si rôle ou utilisateur absent
+     * @return {@code 200} si succès
      */
     @DELETE
     @Path("/{roleId}/users/{userId}")
-    @Transactional
+    @Consumes(MediaType.WILDCARD)
     public Response removeRoleFromUser(@PathParam("roleId") Long roleId, @PathParam("userId") Long userId) {
-        Role role = Role.findById(roleId);
-        User user = User.findById(userId);
-        
-        if (role == null || user == null) {
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
-        
-        role.users.remove(user);
-        role.persist();
-        
+        roleService.removeRoleFromUser(roleId, userId);
         return Response.ok().build();
     }
 }

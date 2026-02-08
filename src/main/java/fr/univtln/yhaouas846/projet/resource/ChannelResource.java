@@ -1,8 +1,9 @@
 package fr.univtln.yhaouas846.projet.resource;
 
-import fr.univtln.yhaouas846.projet.entity.Channel;
-import fr.univtln.yhaouas846.projet.entity.Guild;
-import jakarta.transaction.Transactional;
+import fr.univtln.yhaouas846.projet.dto.*;
+import fr.univtln.yhaouas846.projet.entity.Channel.ChannelType;
+import fr.univtln.yhaouas846.projet.service.ChannelService;
+import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -12,8 +13,8 @@ import java.util.List;
 /**
  * Ressource REST pour gérer les canaux (channels) d'une guilde.
  *
- * <p>Cette API expose un CRUD simple via Panache, et des endpoints de filtrage
- * par guilde et par type de canal.</p>
+ * <p>Cette ressource délègue la logique métier au {@link ChannelService}
+ * et utilise des DTOs pour le contrat API.</p>
  *
  * <h2>Endpoints</h2>
  * <ul>
@@ -31,19 +32,24 @@ import java.util.List;
 @Consumes(MediaType.APPLICATION_JSON)
 public class ChannelResource {
 
+    @Inject
+    ChannelService channelService;
+
+    /**
+     * Liste tous les canaux.
+     */
     @GET
-    public List<Channel> getAllChannels() {
-        return Channel.listAll();
+    public List<ChannelDTO> getAllChannels() {
+        return channelService.getAllChannels();
     }
 
+    /**
+     * Récupère un canal par son identifiant.
+     */
     @GET
     @Path("/{id}")
-    public Response getChannelById(@PathParam("id") Long id) {
-        Channel channel = Channel.findById(id);
-        if (channel == null) {
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
-        return Response.ok(channel).build();
+    public ChannelDTO getChannelById(@PathParam("id") Long id) {
+        return channelService.getChannelById(id);
     }
 
     /**
@@ -52,103 +58,55 @@ public class ChannelResource {
      * <p>Si {@code discordId} est fourni et déjà présent, l'entité existante est mise à jour
      * afin de supporter un mode de synchronisation Discord → base de données.</p>
      *
-     * @param channel canal à créer/mettre à jour
-     * @return {@code 201} si création, {@code 200} si mise à jour, {@code 400} sinon
+     * @param dto données de création
+     * @return {@code 201} avec le DTO du canal créé
      */
     @POST
-    @Transactional
-    public Response createChannel(@Valid Channel channel) {
-        try {
-            // Check if channel already exists by discordId
-            if (channel.discordId != null) {
-                Channel existingChannel = Channel.find("discordId", channel.discordId).firstResult();
-                if (existingChannel != null) {
-                    // Update existing channel
-                    existingChannel.name = channel.name;
-                    existingChannel.description = channel.description;
-                    existingChannel.type = channel.type;
-                    existingChannel.position = channel.position;
-                    existingChannel.isNsfw = channel.isNsfw;
-                    existingChannel.guild = channel.guild;
-                    existingChannel.persist();
-                    return Response.ok(existingChannel).build();
-                }
-            }
-
-            channel.persist();
-            return Response.status(Response.Status.CREATED).entity(channel).build();
-        } catch (Exception e) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("Error creating channel: " + e.getMessage())
-                    .build();
-        }
+    public Response createChannel(@Valid CreateChannelDTO dto) {
+        ChannelDTO created = channelService.createChannel(dto);
+        return Response.status(Response.Status.CREATED).entity(created).build();
     }
 
+    /**
+     * Met à jour un canal existant.
+     */
     @PUT
     @Path("/{id}")
-    @Transactional
-    public Response updateChannel(@PathParam("id") Long id, @Valid Channel updatedChannel) {
-        Channel channel = Channel.findById(id);
-        if (channel == null) {
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
-        
-        channel.name = updatedChannel.name;
-        channel.description = updatedChannel.description;
-        channel.type = updatedChannel.type;
-        channel.position = updatedChannel.position;
-        channel.isNsfw = updatedChannel.isNsfw;
-        
-        try {
-            channel.persist();
-            return Response.ok(channel).build();
-        } catch (Exception e) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("Error updating channel: " + e.getMessage())
-                    .build();
-        }
+    public ChannelDTO updateChannel(@PathParam("id") Long id, @Valid CreateChannelDTO dto) {
+        return channelService.updateChannel(id, dto);
     }
 
+    /**
+     * Supprime un canal.
+     */
     @DELETE
     @Path("/{id}")
-    @Transactional
     public Response deleteChannel(@PathParam("id") Long id) {
-        Channel channel = Channel.findById(id);
-        if (channel == null) {
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
-        
-        channel.delete();
+        channelService.deleteChannel(id);
         return Response.noContent().build();
     }
 
-    @GET
-    @Path("/guild/{guildId}")
     /**
      * Retourne tous les canaux appartenant à une guilde.
      *
      * @param guildId identifiant de la guilde
-     * @return {@code 200} avec la liste, {@code 404} si la guilde n'existe pas
+     * @return liste des canaux de la guilde
      */
-    public Response getChannelsByGuild(@PathParam("guildId") Long guildId) {
-        Guild guild = Guild.findById(guildId);
-        if (guild == null) {
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
-        
-        List<Channel> channels = Channel.find("guild", guild).list();
-        return Response.ok(channels).build();
+    @GET
+    @Path("/guild/{guildId}")
+    public List<ChannelDTO> getChannelsByGuild(@PathParam("guildId") Long guildId) {
+        return channelService.getChannelsByGuild(guildId);
     }
 
-    @GET
-    @Path("/type/{type}")
     /**
      * Filtre les canaux par type.
      *
      * @param type type de canal (enum)
      * @return liste des canaux correspondant
      */
-    public List<Channel> getChannelsByType(@PathParam("type") Channel.ChannelType type) {
-        return Channel.find("type", type).list();
+    @GET
+    @Path("/type/{type}")
+    public List<ChannelDTO> getChannelsByType(@PathParam("type") ChannelType type) {
+        return channelService.getChannelsByType(type);
     }
 }

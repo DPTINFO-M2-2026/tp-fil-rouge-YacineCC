@@ -1,7 +1,8 @@
 package fr.univtln.yhaouas846.projet.resource;
 
-import fr.univtln.yhaouas846.projet.entity.User;
-import jakarta.transaction.Transactional;
+import fr.univtln.yhaouas846.projet.dto.*;
+import fr.univtln.yhaouas846.projet.service.UserService;
+import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -11,8 +12,8 @@ import java.util.List;
 /**
  * Ressource REST exposant des opérations CRUD sur les utilisateurs.
  *
- * <p>Cette ressource s'appuie sur Panache (méthodes statiques) pour accéder aux entités
- * {@link fr.univtln.yhaouas846.projet.entity.User}.</p>
+ * <p>Cette ressource délègue la logique métier au {@link UserService}
+ * et utilise des DTOs pour le contrat API.</p>
  *
  * <h2>Endpoints</h2>
  * <ul>
@@ -24,126 +25,75 @@ import java.util.List;
  *   <li>{@code GET /api/users/username/{username}} : recherche par nom d'utilisateur</li>
  *   <li>{@code GET /api/users/bots} : liste des comptes bot</li>
  * </ul>
- *
- * <p>Les opérations d'écriture sont annotées {@link jakarta.transaction.Transactional}.
- * Les payloads {@code POST}/{@code PUT} sont validés via {@link jakarta.validation.Valid}.</p>
  */
 @Path("/api/users")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class UserResource {
 
+    @Inject
+    UserService userService;
+
     /**
      * Liste tous les utilisateurs.
      *
-     * @return liste de tous les utilisateurs enregistrés
+     * @return liste de tous les utilisateurs enregistrés (résumée)
      */
     @GET
-    public List<User> getAllUsers() {
-        return User.listAll();
+    public List<UserSummaryDTO> getAllUsers() {
+        return userService.getAllUsers();
     }
 
     /**
      * Récupère un utilisateur par son identifiant.
      *
      * @param id identifiant de l'utilisateur
-     * @return {@code 200} avec l'utilisateur, ou {@code 404} si introuvable
+     * @return DTO complet de l'utilisateur
      */
     @GET
     @Path("/{id}")
-    public Response getUserById(@PathParam("id") Long id) {
-        User user = User.findById(id);
-        if (user == null) {
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
-        return Response.ok(user).build();
+    public UserDTO getUserById(@PathParam("id") Long id) {
+        return userService.getUserById(id);
     }
 
     /**
      * Crée un utilisateur.
      *
      * <p>Si le payload contient un {@code discordId} déjà présent en base, l'utilisateur existant
-     * est mis à jour (comportement idempotent côté synchronisation Discord). Sinon, une nouvelle
-     * ligne est créée.</p>
+     * est mis à jour (comportement idempotent côté synchronisation Discord).</p>
      *
-     * @param user représentation de l'utilisateur à créer/mettre à jour
-     * @return {@code 201} si création, {@code 200} si mise à jour, ou {@code 400} en cas d'erreur
+     * @param dto données de création
+     * @return {@code 201} avec le DTO de l'utilisateur créé
      */
     @POST
-    @Transactional
-    public Response createUser(@Valid User user) {
-        try {
-            // Check if user already exists by discordId
-            if (user.discordId != null) {
-                User existingUser = User.find("discordId", user.discordId).firstResult();
-                if (existingUser != null) {
-                    // Update existing user
-                    existingUser.username = user.username;
-                    existingUser.discriminator = user.discriminator;
-                    existingUser.avatarUrl = user.avatarUrl;
-                    existingUser.isBot = user.isBot;
-                    existingUser.persist();
-                    return Response.ok(existingUser).build();
-                }
-            }
-            
-            user.persist();
-            return Response.status(Response.Status.CREATED).entity(user).build();
-        } catch (Exception e) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("Error creating user: " + e.getMessage())
-                    .build();
-        }
+    public Response createUser(@Valid CreateUserDTO dto) {
+        UserDTO created = userService.createUser(dto);
+        return Response.status(Response.Status.CREATED).entity(created).build();
     }
 
     /**
      * Met à jour un utilisateur existant.
      *
      * @param id identifiant de l'utilisateur
-     * @param updatedUser nouvelles valeurs
-     * @return {@code 200} si succès, {@code 404} si introuvable, {@code 400} si validation/échec
+     * @param dto nouvelles valeurs (mise à jour partielle)
+     * @return DTO mis à jour
      */
     @PUT
     @Path("/{id}")
-    @Transactional
-    public Response updateUser(@PathParam("id") Long id, @Valid User updatedUser) {
-        User user = User.findById(id);
-        if (user == null) {
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
-        
-        user.username = updatedUser.username;
-        user.discriminator = updatedUser.discriminator;
-        user.email = updatedUser.email;
-        user.avatarUrl = updatedUser.avatarUrl;
-        user.isBot = updatedUser.isBot;
-        
-        try {
-            user.persist();
-            return Response.ok(user).build();
-        } catch (Exception e) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("Error updating user: " + e.getMessage())
-                    .build();
-        }
+    public UserDTO updateUser(@PathParam("id") Long id, @Valid UpdateUserDTO dto) {
+        return userService.updateUser(id, dto);
     }
 
     /**
      * Supprime un utilisateur.
      *
      * @param id identifiant de l'utilisateur
-     * @return {@code 204} si suppression, {@code 404} si introuvable
+     * @return {@code 204} si suppression réussie
      */
     @DELETE
     @Path("/{id}")
-    @Transactional
     public Response deleteUser(@PathParam("id") Long id) {
-        User user = User.findById(id);
-        if (user == null) {
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
-        
-        user.delete();
+        userService.deleteUser(id);
         return Response.noContent().build();
     }
 
@@ -151,26 +101,22 @@ public class UserResource {
      * Recherche un utilisateur par son {@code username}.
      *
      * @param username nom d'utilisateur
-     * @return {@code 200} si trouvé, {@code 404} sinon
+     * @return DTO complet de l'utilisateur
      */
     @GET
     @Path("/username/{username}")
-    public Response getUserByUsername(@PathParam("username") String username) {
-        User user = User.find("username", username).firstResult();
-        if (user == null) {
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
-        return Response.ok(user).build();
+    public UserDTO getUserByUsername(@PathParam("username") String username) {
+        return userService.getUserByUsername(username);
     }
 
     /**
      * Liste tous les comptes bot.
      *
-     * @return liste des utilisateurs dont {@code isBot} vaut {@code true}
+     * @return liste résumée des utilisateurs bots
      */
     @GET
     @Path("/bots")
-    public List<User> getBots() {
-        return User.find("isBot", true).list();
+    public List<UserSummaryDTO> getBots() {
+        return userService.getBotUsers();
     }
 }
