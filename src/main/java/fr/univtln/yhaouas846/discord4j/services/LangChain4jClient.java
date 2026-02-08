@@ -114,7 +114,9 @@ public class LangChain4jClient {
             return this.chatModel.chat(UserMessage.from(question)).aiMessage().text();
         } catch (Exception e) {
             e.printStackTrace();
-            return "Erreur LangChain4J: " + e.getMessage();
+            String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            if (e.getCause() != null) msg += " (" + e.getCause().getClass().getSimpleName() + ")";
+            return "Erreur LangChain4J: " + msg;
         }
     }
 
@@ -132,7 +134,8 @@ public class LangChain4jClient {
             return this.chatModel.chat(systemMessage, userMsg).aiMessage().text();
         } catch (Exception e) {
             e.printStackTrace();
-            return "Erreur de traduction : " + e.getMessage();
+            String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            return "Erreur de traduction : " + msg;
         }
     }
 
@@ -150,7 +153,8 @@ public class LangChain4jClient {
             return this.chatModel.chat(systemMessage, userMsg).aiMessage().text();
         } catch (Exception e) {
             e.printStackTrace();
-            return "Erreur de résumé : " + e.getMessage();
+            String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            return "Erreur de résumé : " + msg;
         }
     }
 
@@ -168,7 +172,8 @@ public class LangChain4jClient {
             return this.chatModel.chat(systemMessage, userMsg).aiMessage().text();
         } catch (Exception e) {
             e.printStackTrace();
-            return "Erreur de modération : " + e.getMessage();
+            String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            return "Erreur de modération : " + msg;
         }
     }
 
@@ -186,7 +191,8 @@ public class LangChain4jClient {
             return this.chatModel.chat(systemMessage, userMsg).aiMessage().text();
         } catch (Exception e) {
             e.printStackTrace();
-            return "Erreur d'analyse : " + e.getMessage();
+            String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            return "Erreur d'analyse : " + msg;
         }
     }
 
@@ -204,7 +210,8 @@ public class LangChain4jClient {
             return this.chatModel.chat(systemMessage, userMsg).aiMessage().text();
         } catch (Exception e) {
             e.printStackTrace();
-            return "Erreur de traduction automatique : " + e.getMessage();
+            String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            return "Erreur de traduction automatique : " + msg;
         }
     }
 
@@ -222,7 +229,8 @@ public class LangChain4jClient {
             return this.chatModel.chat(systemMessage, userMsg).aiMessage().text();
         } catch (Exception e) {
             e.printStackTrace();
-            return "Erreur de définition : " + e.getMessage();
+            String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            return "Erreur de définition : " + msg;
         }
     }
 

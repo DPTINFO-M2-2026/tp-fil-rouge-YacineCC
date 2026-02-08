@@ -40,7 +40,8 @@ public class OllamaClient {
             return this.chatModel.chat(UserMessage.from(question)).aiMessage().text();
         } catch (Exception e) {
             e.printStackTrace();
-            return "Erreur LangChain4J: " + e.getMessage();
+            String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            return "Erreur LangChain4J: " + msg;
         }
     }
 
@@ -58,7 +59,8 @@ public class OllamaClient {
             return this.chatModel.chat(systemMessage, userMsg).aiMessage().text();
         } catch (Exception e) {
             e.printStackTrace();
-            return "Erreur de traduction : " + e.getMessage();
+            String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            return "Erreur de traduction : " + msg;
         }
     }
 
