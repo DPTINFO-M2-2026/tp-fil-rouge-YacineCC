@@ -126,7 +126,7 @@ if [ -n "$OWNER_ID" ]; then
     assert_status "POST /api/guilds (créer)" 201 \
         -X POST "$BASE_URL/guilds" \
         -H "Content-Type: application/json" \
-        -d "{\"name\":\"Test Guild\",\"description\":\"Guild de test API\",\"owner\":{\"id\":$OWNER_ID}}"
+        -d "{\"name\":\"Test Guild\",\"description\":\"Guild de test API\",\"ownerId\":$OWNER_ID}"
     GUILD_ID=$(extract_id)
 
     if [ -n "$GUILD_ID" ]; then
@@ -135,7 +135,7 @@ if [ -n "$OWNER_ID" ]; then
         assert_status "PUT  /api/guilds/$GUILD_ID (modifier)" 200 \
             -X PUT "$BASE_URL/guilds/$GUILD_ID" \
             -H "Content-Type: application/json" \
-            -d "{\"name\":\"Test Guild Updated\",\"description\":\"Mise à jour\",\"owner\":{\"id\":$OWNER_ID}}"
+            -d "{\"name\":\"Test Guild Updated\",\"description\":\"Mise à jour\"}"
 
         assert_status "DELETE /api/guilds/$GUILD_ID (supprimer)" 204 \
             -X DELETE "$BASE_URL/guilds/$GUILD_ID"
@@ -153,7 +153,7 @@ if [ -n "$OWNER_ID" ]; then
     assert_status "POST /api/guilds (pour channel)" 201 \
         -X POST "$BASE_URL/guilds" \
         -H "Content-Type: application/json" \
-        -d "{\"name\":\"Channel Test Guild\",\"owner\":{\"id\":$OWNER_ID}}"
+        -d "{\"name\":\"Channel Test Guild\",\"ownerId\":$OWNER_ID}"
     CH_GUILD_ID=$(extract_id)
 
     assert_status "GET  /api/channels (liste)" 200 "$BASE_URL/channels"
@@ -162,7 +162,7 @@ if [ -n "$OWNER_ID" ]; then
         assert_status "POST /api/channels (créer)" 201 \
             -X POST "$BASE_URL/channels" \
             -H "Content-Type: application/json" \
-            -d "{\"name\":\"test-channel\",\"type\":\"TEXT\",\"guild\":{\"id\":$CH_GUILD_ID}}"
+            -d "{\"name\":\"test-channel\",\"type\":\"TEXT\",\"guildId\":$CH_GUILD_ID}"
         CHANNEL_ID=$(extract_id)
 
         if [ -n "$CHANNEL_ID" ]; then
@@ -171,7 +171,7 @@ if [ -n "$OWNER_ID" ]; then
             assert_status "PUT  /api/channels/$CHANNEL_ID (modifier)" 200 \
                 -X PUT "$BASE_URL/channels/$CHANNEL_ID" \
                 -H "Content-Type: application/json" \
-                -d "{\"name\":\"test-channel-updated\",\"type\":\"TEXT\",\"guild\":{\"id\":$CH_GUILD_ID}}"
+                -d "{\"name\":\"test-channel-updated\",\"type\":\"TEXT\",\"guildId\":$CH_GUILD_ID}"
 
             assert_status "GET  /api/channels/guild/$CH_GUILD_ID" 200 "$BASE_URL/channels/guild/$CH_GUILD_ID"
             assert_status "GET  /api/channels/type/TEXT" 200 "$BASE_URL/channels/type/TEXT"
@@ -196,7 +196,7 @@ if [ -n "$OWNER_ID" ]; then
     assert_status "POST /api/guilds (pour roles)" 201 \
         -X POST "$BASE_URL/guilds" \
         -H "Content-Type: application/json" \
-        -d "{\"name\":\"Role Test Guild\",\"owner\":{\"id\":$OWNER_ID}}"
+        -d "{\"name\":\"Role Test Guild\",\"ownerId\":$OWNER_ID}"
     ROLE_GUILD_ID=$(extract_id)
 
     assert_status "GET  /api/roles (liste)" 200 "$BASE_URL/roles"
@@ -205,7 +205,7 @@ if [ -n "$OWNER_ID" ]; then
         assert_status "POST /api/roles (créer)" 201 \
             -X POST "$BASE_URL/roles" \
             -H "Content-Type: application/json" \
-            -d "{\"name\":\"Test Role\",\"color\":\"#FF5500\",\"guild\":{\"id\":$ROLE_GUILD_ID}}"
+            -d "{\"name\":\"Test Role\",\"color\":\"#FF5500\",\"guildId\":$ROLE_GUILD_ID}"
         ROLE_ID=$(extract_id)
 
         if [ -n "$ROLE_ID" ]; then
@@ -214,7 +214,7 @@ if [ -n "$OWNER_ID" ]; then
             assert_status "PUT  /api/roles/$ROLE_ID (modifier)" 200 \
                 -X PUT "$BASE_URL/roles/$ROLE_ID" \
                 -H "Content-Type: application/json" \
-                -d "{\"name\":\"Test Role Updated\",\"color\":\"#00FF00\",\"guild\":{\"id\":$ROLE_GUILD_ID}}"
+                -d "{\"name\":\"Test Role Updated\",\"color\":\"#00FF00\",\"guildId\":$ROLE_GUILD_ID}"
 
             assert_status "GET  /api/roles/guild/$ROLE_GUILD_ID" 200 "$BASE_URL/roles/guild/$ROLE_GUILD_ID"
 
@@ -239,13 +239,13 @@ if [ -n "$OWNER_ID" ]; then
     assert_status "POST /api/guilds (pour messages)" 201 \
         -X POST "$BASE_URL/guilds" \
         -H "Content-Type: application/json" \
-        -d "{\"name\":\"Msg Test Guild\",\"owner\":{\"id\":$OWNER_ID}}"
+        -d "{\"name\":\"Msg Test Guild\",\"ownerId\":$OWNER_ID}"
     MSG_GUILD_ID=$(extract_id)
 
     assert_status "POST /api/channels (pour messages)" 201 \
         -X POST "$BASE_URL/channels" \
         -H "Content-Type: application/json" \
-        -d "{\"name\":\"msg-channel\",\"type\":\"TEXT\",\"guild\":{\"id\":$MSG_GUILD_ID}}"
+        -d "{\"name\":\"msg-channel\",\"type\":\"TEXT\",\"guildId\":$MSG_GUILD_ID}"
     MSG_CHANNEL_ID=$(extract_id)
 
     assert_status "GET  /api/messages (liste)" 200 "$BASE_URL/messages?limit=5"
@@ -253,7 +253,7 @@ if [ -n "$OWNER_ID" ]; then
     assert_status "POST /api/messages (créer)" 201 \
         -X POST "$BASE_URL/messages" \
         -H "Content-Type: application/json" \
-        -d "{\"content\":\"Hello from test-api.sh!\",\"author\":{\"id\":$OWNER_ID},\"channel\":{\"id\":$MSG_CHANNEL_ID}}"
+        -d "{\"content\":\"Hello from test-api.sh!\",\"authorId\":$OWNER_ID,\"channelId\":$MSG_CHANNEL_ID}"
     MSG_ID=$(extract_id)
 
     if [ -n "$MSG_ID" ]; then
@@ -262,7 +262,7 @@ if [ -n "$OWNER_ID" ]; then
         assert_status "PUT  /api/messages/$MSG_ID (modifier)" 200 \
             -X PUT "$BASE_URL/messages/$MSG_ID" \
             -H "Content-Type: application/json" \
-            -d "{\"content\":\"Edited message!\",\"author\":{\"id\":$OWNER_ID},\"channel\":{\"id\":$MSG_CHANNEL_ID}}"
+            -d "{\"content\":\"Edited message!\",\"authorId\":$OWNER_ID,\"channelId\":$MSG_CHANNEL_ID}"
 
         assert_status "GET  /api/messages/channel/$MSG_CHANNEL_ID" 200 "$BASE_URL/messages/channel/$MSG_CHANNEL_ID"
         assert_status "GET  /api/messages/user/$OWNER_ID" 200 "$BASE_URL/messages/user/$OWNER_ID"

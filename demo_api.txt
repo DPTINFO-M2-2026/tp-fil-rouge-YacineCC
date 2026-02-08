@@ -4,13 +4,13 @@ curl -s -X POST http://localhost:8080/api/users \
   -d '{"username":"DemoUser","discriminator":"0001","email":"demo@test.com","discordId":"999"}' | jq
 
 
-# Créer la guilde (owner = objet avec id)
+# Créer la guilde
 curl -s -X POST http://localhost:8080/api/guilds \
   -H "Content-Type: application/json" \
   -d '{
     "name": "DemoGuild",
     "description": "Guilde de démonstration",
-    "owner": {"id": 1},
+    "ownerId": 1,
     "memberLimit": 100
   }' | jq
 
@@ -20,6 +20,6 @@ curl -s -X POST http://localhost:8080/api/messages \
   -H "Content-Type: application/json" \
   -d '{
     "content": "Hello démo!",
-    "author": {"id": 1},
-    "channel": {"id": 1}
+    "authorId": 1,
+    "channelId": 1
   }' | jq
