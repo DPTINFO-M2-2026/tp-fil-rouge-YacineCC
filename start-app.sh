@@ -55,7 +55,7 @@ echo " ✅"
 
 echo "⏳ Attente de l'API Quarkus..."
 for i in $(seq 1 60); do
-    if curl -sf http://localhost:8080/q/health/ready &> /dev/null; then
+    if curl -sf http://localhost:8080/api/users &> /dev/null; then
         echo " ✅"
         break
     fi
@@ -78,5 +78,5 @@ echo "📋 Commandes utiles :"
 echo "  Logs        : docker compose -f docker-compose.full.yml logs -f"
 echo "  Logs API    : docker compose -f docker-compose.full.yml logs -f app"
 echo "  Logs bot    : docker compose -f docker-compose.full.yml logs -f bot"
-echo "  Arrêter     : ./stop-dev.sh"
+echo "  Arrêter     : ./stop-app.sh"
 echo "  Test API    : ./test-api.sh"

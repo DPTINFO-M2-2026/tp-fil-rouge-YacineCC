@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Arrête toute la stack lancée par start-dev.sh
+# Arrête toute la stack lancée par start-app.sh
 
 echo "🛑 Arrêt de tous les services..."
 
