@@ -62,7 +62,7 @@ class RoleResourceTest {
         String newRole = "{\n" +
                 "\"name\": \"TestNewRole\",\n" +
                 "\"color\": \"#ABCDEF\",\n" +
-                "\"guild\": {\"id\": 200},\n" +
+                "\"guildId\": 200,\n" +
                 "\"position\": 5,\n" +
                 "\"canSendMessages\": true,\n" +
                 "\"canReadMessages\": true\n" +
@@ -91,7 +91,7 @@ class RoleResourceTest {
         String role = "{\n" +
                 "\"name\": \"RoleToUpdate\",\n" +
                 "\"color\": \"#111111\",\n" +
-                "\"guild\": {\"id\": 200}\n" +
+                "\"guildId\": 200\n" +
                 "}";
 
         Integer roleId = given()
@@ -105,7 +105,7 @@ class RoleResourceTest {
         String updated = "{\n" +
                 "\"name\": \"RoleUpdated\",\n" +
                 "\"color\": \"#222222\",\n" +
-                "\"guild\": {\"id\": 200},\n" +
+                "\"guildId\": 200,\n" +
                 "\"canKickMembers\": true\n" +
                 "}";
 
@@ -128,7 +128,7 @@ class RoleResourceTest {
         String payload = "{\n" +
                 "\"name\": \"Nope\",\n" +
                 "\"color\": \"#000000\",\n" +
-                "\"guild\": {\"id\": 200}\n" +
+                "\"guildId\": 200\n" +
                 "}";
 
         given()

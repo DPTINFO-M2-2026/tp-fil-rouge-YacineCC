@@ -37,7 +37,7 @@ class GuildResourceTest {
         String newGuild = "{\n" +
                 "\"name\": \"New API Guild\",\n" +
                 "\"description\": \"Guild created via API\",\n" +
-                "\"owner\": {\"id\": 100},\n" +
+                "\"ownerId\": 100,\n" +
                 "\"memberLimit\": 150\n" +
                 "}";
 

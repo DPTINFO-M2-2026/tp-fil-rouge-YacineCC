@@ -58,7 +58,7 @@ class ChannelResourceTest {
         String newChannel = "{\n" +
                 "\"name\": \"test-new-channel\",\n" +
                 "\"type\": \"TEXT\",\n" +
-                "\"guild\": {\"id\": 200},\n" +
+                "\"guildId\": 200,\n" +
                 "\"position\": 5\n" +
                 "}";
 
@@ -85,7 +85,7 @@ class ChannelResourceTest {
         String channel = "{\n" +
                 "\"name\": \"channel-to-update\",\n" +
                 "\"type\": \"TEXT\",\n" +
-                "\"guild\": {\"id\": 200}\n" +
+                "\"guildId\": 200\n" +
                 "}";
 
         Integer channelId = given()
@@ -99,7 +99,7 @@ class ChannelResourceTest {
         String updated = "{\n" +
                 "\"name\": \"channel-updated\",\n" +
                 "\"type\": \"VOICE\",\n" +
-                "\"guild\": {\"id\": 200},\n" +
+                "\"guildId\": 200,\n" +
                 "\"position\": 10\n" +
                 "}";
 
@@ -121,7 +121,7 @@ class ChannelResourceTest {
         String payload = "{\n" +
                 "\"name\": \"nope\",\n" +
                 "\"type\": \"TEXT\",\n" +
-                "\"guild\": {\"id\": 200}\n" +
+                "\"guildId\": 200\n" +
                 "}";
 
         given()

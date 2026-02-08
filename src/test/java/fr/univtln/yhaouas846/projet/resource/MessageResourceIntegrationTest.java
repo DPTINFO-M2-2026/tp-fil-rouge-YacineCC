@@ -15,8 +15,8 @@ class MessageResourceIntegrationTest {
         String first = "{\n" +
                 "\"discordId\": \"discord-xyz\",\n" +
                 "\"content\": \"First\",\n" +
-                "\"author\": {\"id\": 100},\n" +
-                "\"channel\": {\"id\": 300}\n" +
+                "\"authorId\": 100,\n" +
+                "\"channelId\": 300\n" +
                 "}";
 
         given()
@@ -31,9 +31,8 @@ class MessageResourceIntegrationTest {
         String second = "{\n" +
                 "\"discordId\": \"discord-xyz\",\n" +
                 "\"content\": \"Second\",\n" +
-                "\"isEdited\": true,\n" +
-                "\"author\": {\"id\": 100},\n" +
-                "\"channel\": {\"id\": 300}\n" +
+                "\"authorId\": 100,\n" +
+                "\"channelId\": 300\n" +
                 "}";
 
         given()
@@ -41,7 +40,7 @@ class MessageResourceIntegrationTest {
                 .body(second)
                 .when().post("/api/messages")
                 .then()
-                .statusCode(200)
+                .statusCode(201)
                 .body("discordId", equalTo("discord-xyz"))
                 .body("content", equalTo("Second"));
     }
