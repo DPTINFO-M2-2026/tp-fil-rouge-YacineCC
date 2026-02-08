@@ -725,23 +725,18 @@ public class ThrasherBotReactive {
         }
 
         return saveUser(owner).flatMap(ownerId -> {
-            fr.univtln.yhaouas846.projet.entity.Guild dbGuild = new fr.univtln.yhaouas846.projet.entity.Guild();
-            dbGuild.name = discordGuild.getName();
-            dbGuild.description = discordGuild.getDescription().orElse(null);
-            dbGuild.iconUrl = discordGuild.getIconUrl(Image.Format.PNG).orElse(null);
-            dbGuild.createdAt = toLocalDateTime(discordGuild.getId().getTimestamp());
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("name", discordGuild.getName());
+            payload.put("description", discordGuild.getDescription().orElse(null));
+            payload.put("iconUrl", discordGuild.getIconUrl(Image.Format.PNG).orElse(null));
             
             // Fix: Limite max à 800000 pour respecter la contrainte DB
             int limit = discordGuild.getMaxMembers().orElse(500000);
-            dbGuild.memberLimit = Math.min(limit, 800000);
-            dbGuild.discordId = discordGuild.getId().asString();
-            
-            // On lie l'owner par son ID DB
-            fr.univtln.yhaouas846.projet.entity.User ownerRef = new fr.univtln.yhaouas846.projet.entity.User();
-            ownerRef.id = ownerId;
-            dbGuild.owner = ownerRef;
+            payload.put("memberLimit", Math.min(limit, 800000));
+            payload.put("discordId", discordGuild.getId().asString());
+            payload.put("ownerId", ownerId);
 
-            return sendToApi("/guilds", dbGuild)
+            return sendToApi("/guilds", payload)
                     .map(json -> {
                         long id = json.get("id").asLong();
                         guildMap.put(discordGuild.getId(), id);
@@ -782,9 +777,7 @@ public class ThrasherBotReactive {
         }
         payload.put("type", type);
 
-        Map<String, Object> guildRef = new HashMap<>();
-        guildRef.put("id", guildId);
-        payload.put("guild", guildRef);
+        payload.put("guildId", guildId);
 
         return sendToApi("/channels", payload)
                 .map(json -> {
@@ -812,10 +805,7 @@ public class ThrasherBotReactive {
         payload.put("mentionable", discordRole.isMentionable());
         payload.put("hoisted", discordRole.isHoisted());
         payload.put("discordId", discordRole.getId().asString());
-
-        Map<String, Object> guildRef = new HashMap<>();
-        guildRef.put("id", guildId);
-        payload.put("guild", guildRef);
+        payload.put("guildId", guildId);
 
         return sendToApi("/roles", payload)
                 .map(json -> {
@@ -855,13 +845,8 @@ public class ThrasherBotReactive {
             payload.put("isEdited", discordMessage.getEditedTimestamp().isPresent());
             payload.put("discordId", discordMessage.getId().asString());
             
-            Map<String, Object> authorRef = new HashMap<>();
-            authorRef.put("id", authorId);
-            payload.put("author", authorRef);
-
-            Map<String, Object> channelRef = new HashMap<>();
-            channelRef.put("id", channelId);
-            payload.put("channel", channelRef);
+            payload.put("authorId", authorId);
+            payload.put("channelId", channelId);
 
             return sendToApi("/messages", payload)
                     .doOnSuccess(json -> System.out.println("✅ Message sauvegardé: " + discordMessage.getId().asString()))
@@ -938,7 +923,19 @@ public class ThrasherBotReactive {
                         }
                         JsonNode msgJson = objectMapper.readTree(getResp.body());
                         String discordMsgId = msgJson.path("discordId").asText(null);
-                        String channelDiscordId = msgJson.has("channel") ? msgJson.path("channel").path("discordId").asText(null) : null;
+                        
+                        // Le MessageDTO contient channelId (Long), pas un objet channel.
+                        // Il faut faire un GET /channels/{channelId} pour obtenir le discordId du channel.
+                        String channelDiscordId = null;
+                        long channelDbId = msgJson.path("channelId").asLong(0);
+                        if (channelDbId > 0) {
+                            String chUrl = API_URL + "/channels/" + channelDbId;
+                            HttpRequest chReq = HttpRequest.newBuilder().uri(URI.create(chUrl)).GET().build();
+                            HttpResponse<String> chResp = httpClient.send(chReq, HttpResponse.BodyHandlers.ofString());
+                            if (chResp.statusCode() < 400) {
+                                channelDiscordId = objectMapper.readTree(chResp.body()).path("discordId").asText(null);
+                            }
+                        }
 
                         // 2. Supprimer en BDD via l'API
                         String deleteUrl = API_URL + "/bot/messages/" + messageIdStr + "?requesterId=" + requesterId;
