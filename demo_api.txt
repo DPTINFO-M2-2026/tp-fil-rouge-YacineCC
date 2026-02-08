@@ -1,7 +1,7 @@
 # Créer un user
 curl -s -X POST http://localhost:8080/api/users \
   -H "Content-Type: application/json" \
-  -d '{"username":"DemoUser","email":"demo@test.com","discordId":"999"}' | jq
+  -d '{"username":"DemoUser","discriminator":"0001","email":"demo@test.com","discordId":"999"}' | jq
 
 
 # Créer la guilde (owner = objet avec id)

@@ -28,13 +28,11 @@ public class IndexResource {
                 "channels", "/api/channels",
                 "messages", "/api/messages",
                 "roles", "/api/roles",
-                "health", "/q/health",
-                "metrics", "/q/metrics"
+                "bot", "/api/bot"
             ),
             "features", new String[]{
-                "Automatic guild scanning every 5 minutes",
+                "Automatic guild scanning every 60 seconds",
                 "AI-powered commands (LLM via Ollama)",
-                "GPU acceleration (NVIDIA RTX 3080)",
                 "Reactive architecture (Discord4j + Reactor)",
                 "PostgreSQL persistence"
             }

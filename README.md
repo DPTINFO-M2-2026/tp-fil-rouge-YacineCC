@@ -120,7 +120,7 @@ Service Layer · Repository · DTO · Mapper · Exception Handler · Active Reco
 | `/api/guilds` | `GET` · `POST` · `PUT /{id}` · `DELETE /{id}` |
 | `/api/channels` | `GET` · `POST` · `GET /{id}` · `PUT /{id}` · `DELETE /{id}` · `GET /guild/{guildId}` · `GET /type/{type}` |
 | `/api/roles` | `GET` · `POST` · `GET /{id}` · `PUT /{id}` · `DELETE /{id}` · `GET /guild/{guildId}` · `POST /{roleId}/users/{userId}` · `DELETE /{roleId}/users/{userId}` |
-| `/api/messages` | `GET ?limit=` · `POST` · `GET /{id}` · `PUT /{id}` · `DELETE /{id}` · `GET /channel/{cId}` · `GET /user/{uId}` · `GET /search?q=` |
+| `/api/messages` | `GET ?limit=` · `POST` · `GET /{id}` · `PUT /{id}` · `DELETE /{id}` · `GET /channel/{cId}` · `GET /user/{uId}` · `GET /search?content=` |
 | `/api/bot` | `GET /health` · `POST /guilds` · `POST /messages` · `DELETE /messages/{id}` · `GET /messages/channel/{cId}` · `POST /guilds/{gId}/members/{uId}` · `GET /users/{uId}/guilds` · `GET /users/{uId}/permissions` |
 
 ### Format d'erreur standardisé

@@ -101,7 +101,7 @@ classDiagram
 ### Channel (Canal)
 - **ManyToOne** avec Guild : Chaque canal appartient à une guilde
 - **OneToMany** avec Message : Un canal contient plusieurs messages (cascade ALL)
-- **ManyToOne** avec ChannelType : Chaque canal a un type (TEXT, VOICE, etc.)
+- **Enum field** ChannelType : Chaque canal a un type (TEXT, VOICE, etc.) stocké comme enum
 
 ### Role (Rôle)
 - **ManyToOne** avec Guild : Chaque rôle appartient à une guilde
