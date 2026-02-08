@@ -53,6 +53,24 @@ public class RoleResource {
     @Transactional
     public Response createRole(@Valid Role role) {
         try {
+            // Upsert : si discordId existe déjà, on met à jour
+            if (role.discordId != null) {
+                Role existingRole = Role.find("discordId", role.discordId).firstResult();
+                if (existingRole != null) {
+                    existingRole.name = role.name;
+                    existingRole.color = role.color;
+                    existingRole.position = role.position;
+                    existingRole.canManageChannels = role.canManageChannels;
+                    existingRole.canManageRoles = role.canManageRoles;
+                    existingRole.canManageMessages = role.canManageMessages;
+                    existingRole.canKickMembers = role.canKickMembers;
+                    existingRole.canBanMembers = role.canBanMembers;
+                    existingRole.canSendMessages = role.canSendMessages;
+                    existingRole.canReadMessages = role.canReadMessages;
+                    existingRole.persist();
+                    return Response.ok(existingRole).build();
+                }
+            }
             role.persist();
             return Response.status(Response.Status.CREATED).entity(role).build();
         } catch (Exception e) {

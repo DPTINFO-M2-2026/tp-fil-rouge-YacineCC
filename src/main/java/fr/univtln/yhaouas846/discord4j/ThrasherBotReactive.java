@@ -92,6 +92,7 @@ public class ThrasherBotReactive {
     private static final Map<Snowflake, Long> userMap = new HashMap<>();
     private static final Map<Snowflake, Long> guildMap = new HashMap<>();
     private static final Map<Snowflake, Long> channelMap = new HashMap<>();
+    private static final Map<Snowflake, Long> roleMap = new HashMap<>();
     
     // Configuration du scan automatique (60 sec pour ne pas bloquer les commandes)
     private static final int SCAN_INTERVAL_SECONDS = 60;
@@ -797,6 +798,10 @@ public class ThrasherBotReactive {
      * Envoie un rôle Discord vers l'API et retourne son identifiant DB.
      */
     private static Mono<Long> saveRole(discord4j.core.object.entity.Role discordRole, Long guildId) {
+        if (roleMap.containsKey(discordRole.getId())) {
+            return Mono.just(roleMap.get(discordRole.getId()));
+        }
+
         Map<String, Object> payload = new HashMap<>();
         payload.put("name", discordRole.getName());
         // Convertit la couleur RGB en format hexadécimal #RRGGBB
@@ -813,7 +818,11 @@ public class ThrasherBotReactive {
         payload.put("guild", guildRef);
 
         return sendToApi("/roles", payload)
-                .map(json -> json.get("id").asLong())
+                .map(json -> {
+                    long id = json.get("id").asLong();
+                    roleMap.put(discordRole.getId(), id);
+                    return id;
+                })
                 .doOnSuccess(id -> System.out.println("✅ Rôle sauvegardé: " + discordRole.getName()))
                 .doOnError(e -> System.err.println("❌ Erreur rôle " + discordRole.getName() + ": " + e.getMessage()));
     }

@@ -69,7 +69,13 @@ public class Role extends PanacheEntity {
     
     @Column(name = "can_read_messages")
     public boolean canReadMessages = true;
-    
+
+    /**
+     * Identifiant Discord du rôle (utilisé pour l'upsert lors de la synchronisation).
+     */
+    @Column(name = "discord_id", unique = true)
+    public String discordId;
+
     @ManyToMany
     @JoinTable(
         name = "user_roles",
