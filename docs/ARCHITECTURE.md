@@ -37,7 +37,8 @@ Tous les diagrammes sont en **PlantUML** dans le dossier `docs/` :
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
 │          Couche Service (Business Logic Layer)               │
-│  • UserService, GuildService, MessageService, etc.           │
+│  • UserService, GuildService, ChannelService,                │
+│    RoleService, MessageService, DiscordBotService            │
 │  • Logique métier et règles de gestion                       │
 │  • Validation métier complexe                                │
 │  • Orchestration des opérations                              │
@@ -87,9 +88,16 @@ fr.univtln.yhaouas846.projet/
 ├── service/                     # Services métier
 │   ├── UserService.java
 │   ├── GuildService.java
+│   ├── ChannelService.java
+│   ├── RoleService.java
+│   ├── MessageService.java
+│   ├── DiscordBotService.java
 │   ├── mapper/                  # Mappers Entity ↔ DTO
 │   │   ├── UserMapper.java
-│   │   └── ...
+│   │   ├── GuildMapper.java
+│   │   ├── ChannelMapper.java
+│   │   ├── RoleMapper.java
+│   │   └── MessageMapper.java
 │   └── exception/               # Exceptions métier
 │       ├── BusinessException.java
 │       └── ResourceNotFoundException.java
