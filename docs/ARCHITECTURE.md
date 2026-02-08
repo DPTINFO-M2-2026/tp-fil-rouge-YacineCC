@@ -403,10 +403,14 @@ Client ← HTTP Error + ErrorResponse
                               │              │ (WebSocket)  │
                               │              └──────────────┘
                       ┌───────┴───────┐
-                      │  Ollama LLM   │
+                      │  Ollama LLM   │◄─── (LangChain4J)
                       │  :11434 (GPU) │
                       └───────────────┘
 ```
+
+**Healthcheck API** : `GET /api/users` (pas de SmallRye Health)
+**Scan automatique** : toutes les 60 secondes (users, guilds, channels, roles, messages)
+**Commandes admin** : scan, createGuild, delete, role, mute/unmute, nick, ban/unban
 
 ## Processeur d'annotation custom
 

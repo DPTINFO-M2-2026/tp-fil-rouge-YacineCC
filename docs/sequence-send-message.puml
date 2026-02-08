@@ -65,7 +65,7 @@ deactivate Bot
 
 == Scan automatique périodique ==
 
-Bot -> Bot : scheduled scan\n(toutes les 5s)
+Bot -> Bot : scheduled scan\n(toutes les 60s)
 activate Bot #E8EAF6
 
 loop pour chaque guilde Discord

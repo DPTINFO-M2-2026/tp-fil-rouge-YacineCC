@@ -169,7 +169,7 @@ LOG_LEVEL=INFO
 
 | Fichier | Usage |
 |---------|-------|
-| `Dockerfile` | Build multi-stage (dev + runtime) |
+| `Dockerfile` | Build multi-stage (dev + runtime + bot) |
 | `docker-compose.dev.yml` | Développement (PostgreSQL + hot-reload) |
-| `docker-compose.prod.yml` | Production (PostgreSQL + app) |
-| `docker-compose.full.yml` | Stack complète (PostgreSQL + Ollama + app) |
+| `docker-compose.prod.yml` | Production (PostgreSQL + app + pgadmin) |
+| `docker-compose.full.yml` | Stack complète (PostgreSQL + app + bot Discord + Ollama LLM) |

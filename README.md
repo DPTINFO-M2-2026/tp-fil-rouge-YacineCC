@@ -26,6 +26,7 @@ Le projet met en œuvre une **architecture en couches**, les **principes SOLID**
 | **Suppression logique** | Soft-delete sur les messages |
 | **Pagination & filtres** | `limit`, `offset`, filtres par canal, auteur, recherche textuelle |
 | **Bot Discord** | ThrasherBot réactif (Discord4J + Project Reactor) |
+| **Modération** | Mute/unmute, changement de pseudo, ban/unban |
 | **IA (Ollama)** | Intégration LangChain4J pour requêtes LLM |
 | **Dockerisation** | Dockerfile multi-stage + Docker Compose (dev / prod / full) |
 | **CI/CD** | GitHub Actions (build + tests automatiques) |

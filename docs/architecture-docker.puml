@@ -33,7 +33,7 @@ frame "discord-bot-network (bridge)" as net {
             Port: <b>8080</b>
             Dockerfile: <i>runtime</i> stage
             JRE 21 (non-root)
-            Healthcheck: /q/health/ready
+            Healthcheck: /api/users
         end note
     }
 
@@ -42,6 +42,9 @@ frame "discord-bot-network (bridge)" as net {
             Dockerfile: <i>bot</i> stage
             Discord4J réactif
             Env: DISCORD_TOKEN
+            depends_on: app (healthy)
+            Commandes: scan, CRUD,
+            modération (mute, ban, nick)
         end note
     }
 
@@ -66,7 +69,6 @@ frame "discord-bot-network (bridge)" as net {
 client --> app : REST\n(JSON)
 app --> db   : JDBC\n(port 5432)
 bot --> app  : HTTP\n/api/*
-bot --> db   : JDBC
 bot --> discord : WebSocket\n+ REST
 bot --> ollama : HTTP\n(port 11434)
 pull --> ollama : pull\nllama3:8b
@@ -75,6 +77,7 @@ pull --> ollama : pull\nllama3:8b
 app ..> db : depends_on\n(healthy)
 app ..> ollama : depends_on\n(healthy)
 bot ..> app : depends_on\n(healthy)
+bot ..> ollama : depends_on\n(healthy)
 bot ..> pull : depends_on\n(completed)
 
 ' ─── Légende ──────────────────────────────────────────────────

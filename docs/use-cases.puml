@@ -50,6 +50,9 @@ package "Bot Discord (ThrasherBot)" {
     usecase "Créer une guilde\navec canaux par défaut\n(!admin createGuild)" as UC_BOT_GUILD
     usecase "Gérer les rôles\nd'un utilisateur\n(!admin role)" as UC_BOT_ROLE
     usecase "Supprimer un message\navec vérification\nde permissions\n(!admin delete)" as UC_BOT_DELETE
+    usecase "Mute / Unmute\nun utilisateur\n(!admin mute/unmute)" as UC_BOT_MUTE
+    usecase "Changer le pseudo\nd'un membre\n(!admin nick)" as UC_BOT_NICK
+    usecase "Bannir / Débannir\nun utilisateur\n(!admin ban/unban)" as UC_BOT_BAN
 }
 
 user --> UC_BOT_MSG
@@ -58,6 +61,9 @@ admin --> UC_BOT_SCAN
 admin --> UC_BOT_GUILD
 admin --> UC_BOT_ROLE
 admin --> UC_BOT_DELETE
+admin --> UC_BOT_MUTE
+admin --> UC_BOT_NICK
+admin --> UC_BOT_BAN
 
 ' ─── Relations ────────────────────────────────────────────────
 UC_BOT_SCAN ..> UC_CREATE_USER : <<include>>\nsync users
@@ -74,8 +80,9 @@ UC_BOT_AI ..> (Ollama LLM) : <<include>>\nappel IA locale
 ' ─── Notes ────────────────────────────────────────────────────
 note bottom of UC_BOT_SCAN
     Le bot scanne périodiquement
-    tous les serveurs Discord et
-    synchronise les données vers
+    tous les serveurs Discord
+    (toutes les 60 secondes)
+    et synchronise les données vers
     l'API REST (upsert par discordId)
 end note
 
@@ -83,12 +90,25 @@ note right of UC_BOT_DELETE
     Vérification des permissions :
     owner de la guilde OU rôle avec
     canManageMessages = true
+    Supprime de la BDD ET de Discord
 end note
 
 note bottom of UC_BOT_GUILD
     Crée automatiquement :
     - 3 canaux (general, announcements, voice)
     - 2 rôles (Admin, Member)
+end note
+
+note right of UC_BOT_MUTE
+    Mute : deny SEND_MESSAGES
+    sur le channel courant.
+    Unmute : rétablit les permissions
+end note
+
+note right of UC_BOT_BAN
+    Ban / Unban agit directement
+    sur le serveur Discord.
+    Raison optionnelle.
 end note
 
 @enduml
