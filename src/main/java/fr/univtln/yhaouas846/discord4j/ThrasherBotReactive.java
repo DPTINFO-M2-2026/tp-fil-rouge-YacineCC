@@ -860,23 +860,68 @@ public class ThrasherBotReactive {
                                 .flatMap(ch -> ch.createMessage("❌ Utilisateur non synchronisé. Lancez d'abord `!admin scan`."))
                                 .then();
                     }
+                    // 1. Récupérer le message depuis l'API pour obtenir le discordId
                     return Mono.fromCallable(() -> {
-                        String url = API_URL + "/bot/messages/" + messageIdStr + "?requesterId=" + requesterId;
-                        HttpRequest request = HttpRequest.newBuilder()
-                                .uri(URI.create(url))
+                        // GET le message d'abord pour avoir le discordId et le channelDiscordId
+                        String getUrl = API_URL + "/messages/" + messageIdStr;
+                        System.out.println("🔧 [ADMIN] GET message: " + getUrl);
+                        HttpRequest getRequest = HttpRequest.newBuilder()
+                                .uri(URI.create(getUrl))
+                                .GET()
+                                .build();
+                        HttpResponse<String> getResp = httpClient.send(getRequest, HttpResponse.BodyHandlers.ofString());
+                        if (getResp.statusCode() >= 400) {
+                            throw new RuntimeException("Message #" + messageIdStr + " introuvable en BDD.");
+                        }
+                        JsonNode msgJson = objectMapper.readTree(getResp.body());
+                        String discordMsgId = msgJson.path("discordId").asText(null);
+                        String channelDiscordId = msgJson.has("channel") ? msgJson.path("channel").path("discordId").asText(null) : null;
+
+                        // 2. Supprimer en BDD via l'API
+                        String deleteUrl = API_URL + "/bot/messages/" + messageIdStr + "?requesterId=" + requesterId;
+                        System.out.println("🔧 [ADMIN] DELETE message (API): " + deleteUrl);
+                        HttpRequest deleteRequest = HttpRequest.newBuilder()
+                                .uri(URI.create(deleteUrl))
                                 .DELETE()
                                 .build();
-                        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-                        if (response.statusCode() == 403) {
-                            throw new SecurityException(objectMapper.readTree(response.body()).path("error").asText("Permission refusée"));
+                        HttpResponse<String> deleteResp = httpClient.send(deleteRequest, HttpResponse.BodyHandlers.ofString());
+                        if (deleteResp.statusCode() == 403) {
+                            throw new SecurityException(objectMapper.readTree(deleteResp.body()).path("error").asText("Permission refusée"));
                         }
-                        if (response.statusCode() >= 400) {
-                            throw new RuntimeException(objectMapper.readTree(response.body()).path("error").asText("Erreur"));
+                        if (deleteResp.statusCode() >= 400) {
+                            throw new RuntimeException(objectMapper.readTree(deleteResp.body()).path("error").asText("Erreur"));
                         }
-                        return response.body();
+                        System.out.println("🔧 [ADMIN] Message supprimé en BDD. discordId=" + discordMsgId + ", channelDiscordId=" + channelDiscordId);
+
+                        // Retourner les IDs Discord pour la suppression côté Discord
+                        return new String[]{discordMsgId, channelDiscordId};
                     }).subscribeOn(Schedulers.boundedElastic())
-                    .flatMap(body -> message.getChannel()
-                            .flatMap(ch -> ch.createMessage("✅ Message #" + messageIdStr + " supprimé.")))
+                    // 3. Supprimer sur Discord via Discord4J
+                    .flatMap(ids -> {
+                        String discordMsgId = ids[0];
+                        String channelDiscordId = ids[1];
+
+                        if (discordMsgId != null && channelDiscordId != null) {
+                            Snowflake channelSnowflake = Snowflake.of(channelDiscordId);
+                            Snowflake messageSnowflake = Snowflake.of(discordMsgId);
+                            System.out.println("🔧 [ADMIN] Suppression Discord: channel=" + channelDiscordId + " message=" + discordMsgId);
+
+                            return message.getClient().getChannelById(channelSnowflake)
+                                    .ofType(TextChannel.class)
+                                    .flatMap(ch -> ch.getMessageById(messageSnowflake))
+                                    .flatMap(msg -> msg.delete("Supprimé via !admin delete"))
+                                    .then(message.getChannel().flatMap(ch ->
+                                            ch.createMessage("✅ Message #" + messageIdStr + " supprimé (API + Discord)")))
+                                    .onErrorResume(e -> {
+                                        System.err.println("🔧 [ADMIN] Erreur suppression Discord: " + e.getMessage());
+                                        return message.getChannel().flatMap(ch ->
+                                                ch.createMessage("⚠️ Message #" + messageIdStr + " supprimé en BDD mais erreur Discord : " + e.getMessage()));
+                                    });
+                        } else {
+                            return message.getChannel().flatMap(ch ->
+                                    ch.createMessage("✅ Message #" + messageIdStr + " supprimé en BDD (pas de discordId pour supprimer sur Discord)"));
+                        }
+                    })
                     .then()
                     .onErrorResume(SecurityException.class, e -> message.getChannel()
                             .flatMap(ch -> ch.createMessage("🚫 Permission refusée : " + e.getMessage())).then())
@@ -920,15 +965,15 @@ public class ThrasherBotReactive {
                     .then();
         }
 
+        Snowflake discordUserId = Snowflake.of(userIdStr);
+
+        // 1. Mise à jour en BDD via l'API REST
         return Mono.fromCallable(() -> {
-            // Chercher l'utilisateur DB via le discordId
-            Snowflake discordUserId = Snowflake.of(userIdStr);
             Long dbUserId = userMap.get(discordUserId);
             if (dbUserId == null) {
                 throw new IllegalStateException("Utilisateur non synchronisé. Lancez `!admin scan` d'abord.");
             }
 
-            // Récupérer l'ID DB de la guilde
             Long dbGuildId = guildMap.get(discordGuildId);
             if (dbGuildId == null) {
                 throw new IllegalStateException("Guilde non synchronisée. Lancez `!admin scan` d'abord.");
@@ -958,7 +1003,7 @@ public class ThrasherBotReactive {
 
             // POST ou DELETE /api/roles/{roleId}/users/{userId}
             String url = API_URL + "/roles/" + roleId + "/users/" + dbUserId;
-            System.out.println("🔧 [ADMIN] " + action.toUpperCase() + " rôle: " + url);
+            System.out.println("🔧 [ADMIN] " + action.toUpperCase() + " rôle (API): " + url);
             HttpRequest.Builder builder = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("Content-Type", "application/json");
@@ -967,16 +1012,34 @@ public class ThrasherBotReactive {
                     : builder.DELETE().build();
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            System.out.println("🔧 [ADMIN] Réponse role " + action + ": " + response.statusCode());
+            System.out.println("🔧 [ADMIN] Réponse role " + action + " (API): " + response.statusCode());
             if (response.statusCode() >= 400) {
                 throw new RuntimeException("Erreur API (" + response.statusCode() + "): " + response.body());
             }
-
-            return action.equals("add")
-                    ? "✅ Rôle **" + roleName + "** assigné à <@" + userIdStr + ">"
-                    : "✅ Rôle **" + roleName + "** retiré de <@" + userIdStr + ">";
+            return "OK";
         }).subscribeOn(Schedulers.boundedElastic())
-        .flatMap(msg -> message.getChannel().flatMap(ch -> ch.createMessage(msg)))
+        // 2. Appliquer le changement de rôle SUR Discord via Discord4J
+        .then(message.getGuild())
+        .flatMap(guild -> guild.getRoles()
+                .filter(role -> role.getName().equalsIgnoreCase(roleName))
+                .next()
+                .flatMap(discordRole -> {
+                    System.out.println("🔧 [ADMIN] " + action.toUpperCase() + " rôle Discord: " + discordRole.getName() + " (ID: " + discordRole.getId().asString() + ") → user " + userIdStr);
+                    if (action.equals("add")) {
+                        return guild.getMemberById(discordUserId)
+                                .flatMap(member -> member.addRole(discordRole.getId()))
+                                .then(message.getChannel().flatMap(ch ->
+                                        ch.createMessage("✅ Rôle **" + roleName + "** assigné à <@" + userIdStr + "> (API + Discord)")));
+                    } else {
+                        return guild.getMemberById(discordUserId)
+                                .flatMap(member -> member.removeRole(discordRole.getId()))
+                                .then(message.getChannel().flatMap(ch ->
+                                        ch.createMessage("✅ Rôle **" + roleName + "** retiré de <@" + userIdStr + "> (API + Discord)")));
+                    }
+                })
+                .switchIfEmpty(message.getChannel().flatMap(ch ->
+                        ch.createMessage("⚠️ Rôle mis à jour en BDD mais le rôle **" + roleName + "** n'existe pas sur ce serveur Discord.")))
+        )
         .then()
         .onErrorResume(e -> {
             System.err.println("🔧 [ADMIN] ERREUR role: " + e.getClass().getName() + " - " + e.getMessage());
