@@ -1,6 +1,6 @@
 # 🤖 BotDiscord — API REST de gestion Discord
 
-[![Java CI with Maven](https://github.com/YacineCC/tp-fil-rouge-YacineCC/workflows/Java%20CI%20with%20Maven/badge.svg)](https://github.com/YacineCC/tp-fil-rouge-YacineCC/actions)
+[![Java CI with Maven](https://github.com/YacineCC/tp-fil-rouge-YacineCC/workflows/Java%20CI%20with%20Maven/badge.svg)](https://github.com/DPTINFO-M2-2026/tp-fil-rouge-YacineCC/actions)
 ![Java 21](https://img.shields.io/badge/Java-21-orange)
 ![Quarkus 3.28](https://img.shields.io/badge/Quarkus-3.28-blue)
 ![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-336791)

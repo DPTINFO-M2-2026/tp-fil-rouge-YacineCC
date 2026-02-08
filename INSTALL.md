@@ -11,7 +11,7 @@
 
 ```bash
 # 1. Cloner le projet
-git clone https://github.com/YacineCC/tp-fil-rouge-YacineCC.git
+git clone https://github.com/DPTINFO-M2-2026/tp-fil-rouge-YacineCC.git
 cd tp-fil-rouge-YacineCC
 
 # 2. (Optionnel) Configurer le bot Discord
