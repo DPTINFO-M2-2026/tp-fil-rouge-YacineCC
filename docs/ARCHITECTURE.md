@@ -50,7 +50,7 @@ Tous les diagrammes sont en **PlantUML** dans le dossier `docs/` :
 │         Couche Persistance (Data Access Layer)               │
 │  • Repositories (UserRepository, GuildRepository, etc.)      │
 │  • Entités JPA (User, Guild, Role, Channel, Message)        │
-│  • Panache (Active Record pattern)                           │
+│  • Panache (Active Record + Repository pattern)              │
 │  • Gestion des transactions (@Transactional)                 │
 └─────────────────────────────────────────────────────────────┘
                             │
@@ -418,6 +418,7 @@ Client ← HTTP Error + ErrorResponse
 
 **Healthcheck API** : `GET /api/users` (pas de SmallRye Health)
 **Scan automatique** : toutes les 60 secondes (users, guilds, channels, roles, messages)
+**Scan manuel** : commande `!admin scan` pour forcer une synchronisation immédiate
 **Commandes admin** : scan, createGuild, delete, role, mute/unmute, nick, ban/unban
 
 ## Processeur d'annotation custom

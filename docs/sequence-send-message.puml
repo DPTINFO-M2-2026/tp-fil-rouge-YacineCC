@@ -14,7 +14,6 @@ actor "Utilisateur\nDiscord" as U
 participant "ThrasherBot\n(Discord4J)" as Bot
 participant "BotResource\n(JAX-RS)" as BR
 participant "DiscordBotService" as DS
-participant "RoleRepository" as RR
 participant "MessageRepository" as MR
 database "PostgreSQL" as DB
 
@@ -27,15 +26,15 @@ activate BR
 BR -> DS : sendMessage(1, 2, "Hello world")
 activate DS
 
-DS -> DS : checkPermission(author, channel)
+DS -> DS : canUserSendMessage(author, channel)
 activate DS #FFF9C4
 
-DS -> RR : findByGuildAndUser(guild, user)
-activate RR
-RR -> DB : SELECT r.* FROM role r\nJOIN user_roles …
-DB --> RR : roles[]
-RR --> DS : List<Role>
-deactivate RR
+note right of DS
+    1. Si user == guild.owner → OK
+    2. Sinon vérifie user.roles.stream()
+       .anyMatch(role.guild == guild
+       && role.canSendMessages)
+end note
 
 alt Aucun rôle avec canSendMessages
     DS --> BR : throw SecurityException\n"Pas de permission"
@@ -63,17 +62,20 @@ end
 
 deactivate Bot
 
-== Scan automatique périodique ==
+== Scan manuel (!admin scan) ==
 
-Bot -> Bot : scheduled scan\n(toutes les 60s)
+U -> Bot : !admin scan
 activate Bot #E8EAF6
 
 loop pour chaque guilde Discord
-    Bot -> BR : POST /api/users\n(upsert par discordId)
-    Bot -> BR : POST /api/guilds\n(upsert par discordId)
-    Bot -> BR : POST /api/channels\n(upsert par discordId)
+    Bot -> BR : POST /api/users\n+ CreateUserDTO (JSON)
+    Bot -> BR : POST /api/guilds\n+ {name, ownerId, ...} (DTO)
+    Bot -> BR : POST /api/channels\n+ {name, guildId, type, ...} (DTO)
+    Bot -> BR : POST /api/roles\n+ {name, guildId, color, ...} (DTO)
+    Bot -> BR : POST /api/messages\n+ {content, authorId, channelId, ...} (DTO)
 end
 
+Bot --> U : ✅ "Scan terminé !"
 deactivate Bot
 
 @enduml

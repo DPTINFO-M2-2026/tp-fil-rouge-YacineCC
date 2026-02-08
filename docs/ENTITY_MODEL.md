@@ -39,6 +39,7 @@ classDiagram
     class Role {
         +Long id
         +String name
+        +String discordId
         +String color
         +Integer position
         +LocalDateTime createdAt

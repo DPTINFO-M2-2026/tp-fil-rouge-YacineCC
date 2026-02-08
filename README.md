@@ -117,7 +117,7 @@ Service Layer · Repository · DTO · Mapper · Exception Handler · Active Reco
 | Ressource | Endpoints |
 |-----------|-----------|
 | `/api/users` | `GET` · `POST` · `PUT /{id}` · `DELETE /{id}` · `GET /username/{u}` · `GET /bots` |
-| `/api/guilds` | `GET` · `POST` · `PUT /{id}` · `DELETE /{id}` |
+| `/api/guilds` | `GET` · `GET /{id}` · `POST` · `PUT /{id}` · `DELETE /{id}` · `POST /{gId}/members/{uId}` · `DELETE /{gId}/members/{uId}` · `GET /{id}/members` |
 | `/api/channels` | `GET` · `POST` · `GET /{id}` · `PUT /{id}` · `DELETE /{id}` · `GET /guild/{guildId}` · `GET /type/{type}` |
 | `/api/roles` | `GET` · `POST` · `GET /{id}` · `PUT /{id}` · `DELETE /{id}` · `GET /guild/{guildId}` · `POST /{roleId}/users/{userId}` · `DELETE /{roleId}/users/{userId}` |
 | `/api/messages` | `GET ?limit=` · `POST` · `GET /{id}` · `PUT /{id}` · `DELETE /{id}` · `GET /channel/{cId}` · `GET /user/{uId}` · `GET /search?content=` |
