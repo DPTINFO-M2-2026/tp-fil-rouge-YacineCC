@@ -24,6 +24,9 @@ services:
   ollama:
     image: ollama/ollama:latest
     container_name: discord-bot-ollama
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
     ports:
       - "11434:11434"
     volumes:
@@ -106,6 +109,9 @@ services:
       target: bot
       dockerfile: Dockerfile
     container_name: discord-bot-thrasher
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     depends_on:
       app:
         condition: service_healthy
