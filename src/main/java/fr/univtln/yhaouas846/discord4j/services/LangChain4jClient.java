@@ -38,9 +38,9 @@ public class LangChain4jClient {
 
     public LangChain4jClient() {
         Properties props = loadProperties();
-        String hostIp = props.getProperty("LANGCHAIN4J_HOST_IP", DEFAULT_HOST_IP);
-        int port = Integer.parseInt(props.getProperty("LANGCHAIN4J_OLLAMA_PORT", String.valueOf(DEFAULT_OLLAMA_PORT)));
-        String modelName = props.getProperty("LANGCHAIN4J_MODEL_NAME", DEFAULT_MODEL_NAME);
+        String hostIp = resolveProperty(props, "LANGCHAIN4J_HOST_IP", DEFAULT_HOST_IP);
+        int port = Integer.parseInt(resolveProperty(props, "LANGCHAIN4J_OLLAMA_PORT", String.valueOf(DEFAULT_OLLAMA_PORT)));
+        String modelName = resolveProperty(props, "LANGCHAIN4J_MODEL_NAME", DEFAULT_MODEL_NAME);
         
         this.chatModel = OllamaChatModel.builder()
                 .baseUrl("http://" + hostIp + ":" + port)
@@ -53,8 +53,8 @@ public class LangChain4jClient {
 
     public LangChain4jClient(String modelName) {
         Properties props = loadProperties();
-        String hostIp = props.getProperty("LANGCHAIN4J_HOST_IP", DEFAULT_HOST_IP);
-        int port = Integer.parseInt(props.getProperty("LANGCHAIN4J_OLLAMA_PORT", String.valueOf(DEFAULT_OLLAMA_PORT)));
+        String hostIp = resolveProperty(props, "LANGCHAIN4J_HOST_IP", DEFAULT_HOST_IP);
+        int port = Integer.parseInt(resolveProperty(props, "LANGCHAIN4J_OLLAMA_PORT", String.valueOf(DEFAULT_OLLAMA_PORT)));
         
         this.chatModel = OllamaChatModel.builder()
                 .baseUrl("http://" + hostIp + ":" + port)
@@ -92,6 +92,15 @@ public class LangChain4jClient {
         }
         
         return props;
+    }
+
+    /**
+     * Résout une propriété en priorité : variable d'environnement > fichier properties > défaut.
+     */
+    private static String resolveProperty(Properties props, String key, String defaultValue) {
+        String env = System.getenv(key);
+        if (env != null && !env.isBlank()) return env;
+        return props.getProperty(key, defaultValue);
     }
 
     /**

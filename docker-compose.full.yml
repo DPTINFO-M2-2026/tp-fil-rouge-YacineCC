@@ -115,6 +115,9 @@ services:
         condition: service_completed_successfully
     environment:
       DISCORD_TOKEN: ${DISCORD_TOKEN}
+      LANGCHAIN4J_HOST_IP: ollama
+      LANGCHAIN4J_OLLAMA_PORT: "11434"
+      LANGCHAIN4J_MODEL_NAME: llama3:8b
     volumes:
       - ./discord-bot-resources:/app/discord-bot-resources:ro
     networks:
