@@ -9,6 +9,7 @@
 set -euo pipefail
 
 BASE_URL="http://localhost:8080/api"
+RUN_ID=$$
 PASS=0
 FAIL=0
 
@@ -83,7 +84,7 @@ assert_status "GET  /api/users (liste)" 200 "$BASE_URL/users"
 assert_status "POST /api/users (créer)" 201 \
     -X POST "$BASE_URL/users" \
     -H "Content-Type: application/json" \
-    -d '{"username":"testapi_user","discriminator":"0001","email":"testapi@test.local","isBot":false}'
+    -d "{\"username\":\"testapi_user_$RUN_ID\",\"discriminator\":\"0001\",\"email\":\"testapi_${RUN_ID}@test.local\",\"isBot\":false}"
 USER_ID=$(extract_id)
 
 if [ -n "$USER_ID" ]; then
@@ -92,9 +93,9 @@ if [ -n "$USER_ID" ]; then
     assert_status "PUT  /api/users/$USER_ID (modifier)" 200 \
         -X PUT "$BASE_URL/users/$USER_ID" \
         -H "Content-Type: application/json" \
-        -d '{"username":"testapi_updated","discriminator":"0001","email":"testapi@test.local","isBot":false}'
+        -d "{\"username\":\"testapi_updated_$RUN_ID\",\"discriminator\":\"0001\",\"email\":\"testapi_${RUN_ID}@test.local\",\"isBot\":false}"
 
-    assert_status "GET  /api/users/username/testapi_updated" 200 "$BASE_URL/users/username/testapi_updated"
+    assert_status "GET  /api/users/username/testapi_updated_$RUN_ID" 200 "$BASE_URL/users/username/testapi_updated_$RUN_ID"
 
     assert_status "DELETE /api/users/$USER_ID (supprimer)" 204 \
         -X DELETE "$BASE_URL/users/$USER_ID"
@@ -117,7 +118,7 @@ echo -e "${BOLD}3 · Guilds (CRUD)${NC}"
 assert_status "POST /api/users (owner temporaire)" 201 \
     -X POST "$BASE_URL/users" \
     -H "Content-Type: application/json" \
-    -d '{"username":"guild_owner","discriminator":"0002","email":"owner@test.local","isBot":false}'
+    -d "{\"username\":\"guild_owner_$RUN_ID\",\"discriminator\":\"0002\",\"email\":\"owner_${RUN_ID}@test.local\",\"isBot\":false}"
 OWNER_ID=$(extract_id)
 
 assert_status "GET  /api/guilds (liste)" 200 "$BASE_URL/guilds"
